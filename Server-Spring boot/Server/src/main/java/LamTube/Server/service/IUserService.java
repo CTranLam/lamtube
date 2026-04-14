@@ -3,6 +3,8 @@ package LamTube.Server.service;
 
 import LamTube.Server.dto.base.PagedResponseDTO;
 
+import java.util.List;
+
 import LamTube.Server.dto.UserInfoAdminUpdateDTO;
 import LamTube.Server.dto.UserInfoResponseDTO;
 import LamTube.Server.dto.UserInforAdminDTO;
@@ -12,6 +14,7 @@ import LamTube.Server.dto.UserRegisterResponseDTO;
 import LamTube.Server.dto.UserRequestCreateDTO;
 import LamTube.Server.dto.UserRequestUpdateDTO;
 import LamTube.Server.dto.UserResponseDTO;
+import LamTube.Server.dto.VideoResponseDTO;
 
 public interface IUserService {
 
@@ -34,4 +37,6 @@ public interface IUserService {
     void updateUserInfo(Long userId, UserInfoAdminUpdateDTO updateDTO);
 
     void deleteUser(Long userId);
+
+    List<VideoResponseDTO> getUserVideos(String email);
 }

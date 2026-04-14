@@ -22,14 +22,17 @@ import LamTube.Server.dto.UserRegisterResponseDTO;
 import LamTube.Server.dto.UserRequestCreateDTO;
 import LamTube.Server.dto.UserRequestUpdateDTO;
 import LamTube.Server.dto.UserResponseDTO;
+import LamTube.Server.dto.VideoResponseDTO;
 import LamTube.Server.dto.base.PagedResponseDTO;
 import LamTube.Server.enums.role;
 import LamTube.Server.model.RoleEntity;
 import LamTube.Server.model.UserEntity;
 import LamTube.Server.model.UserProfileEntity;
+import LamTube.Server.model.VideoEntity;
 import LamTube.Server.repository.RoleRepository;
 import LamTube.Server.repository.UserProfileRepository;
 import LamTube.Server.repository.UserRepository;
+import LamTube.Server.repository.VideoRepository;
 import LamTube.Server.service.IUserService;
 import LamTube.Server.utils.JwtTokenUtils;
 import jakarta.transaction.Transactional;
@@ -46,6 +49,7 @@ public class UserServiceImpl implements IUserService {
     private final JwtTokenUtils jwtTokenUtils;
     private final RoleRepository roleRepository;
     private final UserProfileRepository userProfileRepository;
+    private final VideoRepository videoRepository;
 
     @Override
     public UserRegisterResponseDTO createUser(UserRegisterDTO dto) {
@@ -234,5 +238,27 @@ public class UserServiceImpl implements IUserService {
             user.setIsDeleted(true);
             user.setEmail(user.getEmail() + "_del_" + System.currentTimeMillis());
             userRepository.save(user);
+        }
+        @Override
+        public List<VideoResponseDTO> getUserVideos(String email) {
+            UserEntity userEntity = userRepository.findByEmailAndIsDeletedFalse(email)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+            
+            List<VideoEntity> videos = videoRepository.findByUserEmail(email);
+            return videos.stream()
+                .map(video -> {
+                VideoResponseDTO dto = new VideoResponseDTO();
+                dto.setId(video.getId());
+                dto.setTitle(video.getTitle());
+                dto.setDescription(video.getDescription());
+                dto.setThumbnailUrl(video.getThumbnailUrl());
+                dto.setVideoUrl(video.getVideoUrl());
+                dto.setStatus(video.getStatus());
+                dto.setViewCount(video.getViewCount() != null ? video.getViewCount() : 0);
+                dto.setCategoryName(video.getCategory() != null ? video.getCategory().getName() : null);
+                return dto;
+                })
+                    .collect(Collectors.toList());
+
         }
 }

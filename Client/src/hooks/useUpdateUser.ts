@@ -22,7 +22,7 @@ export const useUpdateUser = () => {
     UpdatePayload
   >({
     mutationFn: ({ userId, payload }) => updateUser(userId, payload),
-    onSuccess: (data, vars) => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
       queryClient.invalidateQueries({ queryKey: ["adminUser", vars.userId] });
     },

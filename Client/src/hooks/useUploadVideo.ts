@@ -1,14 +1,15 @@
 import { useMutation } from "@tanstack/react-query";
 import { createVideo } from "../api/videos";
+import type { ApiResponse } from "../types/auth";
 import type { UploadVideoPayload, UploadVideoResponse } from "../types/video";
 
 type UploadVideoOptions = {
-  onSuccess?: (response: UploadVideoResponse) => void;
+  onSuccess?: (response: ApiResponse<UploadVideoResponse>) => void;
 };
 
 export function useUploadVideo() {
   const mutation = useMutation<
-    UploadVideoResponse,
+    ApiResponse<UploadVideoResponse>,
     Error,
     { payload: UploadVideoPayload; options?: UploadVideoOptions }
   >({

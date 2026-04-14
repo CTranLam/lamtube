@@ -25,13 +25,13 @@ export interface UploadVideoPayload {
 }
 
 export interface UploadVideoResponse {
-  id: string;
+  id: number;
   title: string;
   description: string;
   videoUrl: string;
   thumbnailUrl?: string;
   status: "public" | "private";
-  categoryId?: number;
+  categoryId?: number | null;
 }
 
 export interface UploadVideoFormState {

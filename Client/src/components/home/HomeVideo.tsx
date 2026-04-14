@@ -1,10 +1,17 @@
 import { Box } from "@mui/material";
 import { useVideos } from "../../hooks/useVideos";
+import type { HomeCategoryId } from "../../types/category";
 import { VideoGrid } from "../video/VideoGrid";
 import HomeVideoItem from "./HomeVideoItem.tsx";
 
-export default function HomeVideo() {
-  const { data, isLoading, isError } = useVideos();
+type HomeVideoProps = {
+  selectedCategoryId: HomeCategoryId;
+};
+
+export default function HomeVideo({ selectedCategoryId }: HomeVideoProps) {
+  const { data, isLoading, isError } = useVideos(
+    selectedCategoryId === "all" ? undefined : selectedCategoryId,
+  );
 
   if (isError) {
     return (

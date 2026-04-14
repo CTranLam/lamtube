@@ -42,7 +42,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getMyVideos(): Promise<MyVideo[]> {
-  const response = await fetch(`${API_BASE_URL}/channel/videos`, {
+  const response = await fetch(`${API_BASE_URL}/user/channel/videos`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -51,7 +51,7 @@ export async function getMyVideos(): Promise<MyVideo[]> {
 }
 
 export async function getChannelStats(): Promise<ChannelStats> {
-  const response = await fetch(`${API_BASE_URL}/channel/stats`, {
+  const response = await fetch(`${API_BASE_URL}/user/channel/stats`, {
     method: "GET",
     headers: getAuthHeaders(),
   });

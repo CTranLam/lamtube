@@ -1,0 +1,41 @@
+import { useState } from "react";
+import { Outlet } from "react-router-dom";
+import { Box } from "@mui/material";
+import Navbar from "../components/common/Navbar";
+import Sidebar from "../components/common/Sidebar";
+
+export default function MainLayout() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const handleMenuClick = () => {
+    setSidebarCollapsed((prev) => !prev);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        backgroundColor: "#0f0f0f",
+      }}
+    >
+      <Navbar onMenuClick={handleMenuClick} />
+      <Box sx={{ display: "flex", flex: 1, pt: "64px" }}>
+        <Sidebar open onClose={() => {}} collapsed={sidebarCollapsed} />
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            backgroundColor: "#0f0f0f",
+            p: { xs: 1, sm: 2 },
+            overflowX: "hidden",
+            mt: { xs: 0, md: 0 },
+          }}
+        >
+          <Outlet />
+        </Box>
+      </Box>
+    </Box>
+  );
+}

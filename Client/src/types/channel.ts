@@ -1,5 +1,3 @@
-import type { Video } from "./video";
-
 export interface ChannelStats {
   totalViews: number;
   totalSubscribers: number;
@@ -22,4 +20,14 @@ export interface UserUpdateDTO {
   avatarUrl?: string;
 }
 
-export type MyVideo = Video;
+export interface MyVideo {
+  id: number;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  status: "public" | "private";
+  viewCount: number;
+  categoryName: string | null;
+  categoryId: number | null;
+}

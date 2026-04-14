@@ -11,10 +11,7 @@ import { getUploadCategories } from "../api/videos";
 import LoginRequiredModal from "../components/common/LoginRequiredModal";
 import { useAuth } from "../hooks/useAuth";
 import { useUploadVideo } from "../hooks/useUploadVideo";
-import type {
-  UploadVideoCategory,
-  UploadVideoFormState,
-} from "../types/video";
+import type { UploadVideoCategory, UploadVideoFormState } from "../types/video";
 import { UploadVideoHeader } from "../components/video/UploadVideoHeader";
 import { UploadVideoAlerts } from "../components/video/UploadVideoAlerts";
 import { UploadVideoDetailsForm } from "../components/video/UploadVideoDetailsForm";
@@ -35,6 +32,7 @@ export default function UploadVideo() {
   const [form, setForm] = useState<UploadVideoFormState>(initialFormState);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string>("");
   const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
   const [categories, setCategories] = useState<UploadVideoCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -71,6 +69,20 @@ export default function UploadVideo() {
   }, []);
 
   useEffect(() => {
+    if (!videoFile) {
+      setVideoPreview("");
+      return;
+    }
+
+    const preview = URL.createObjectURL(videoFile);
+    setVideoPreview(preview);
+
+    return () => {
+      URL.revokeObjectURL(preview);
+    };
+  }, [videoFile]);
+
+  useEffect(() => {
     if (!thumbnailFile) {
       setThumbnailPreview("");
       return;
@@ -85,11 +97,17 @@ export default function UploadVideo() {
   }, [thumbnailFile]);
 
   const videoSummary = useMemo(() => {
-    if (!videoFile) return "Chưa chọn video";
-
-    const sizeMb = (videoFile.size / (1024 * 1024)).toFixed(2);
-    return `${videoFile.name} • ${sizeMb} MB`;
+    if (videoFile) {
+      const sizeMb = (videoFile.size / (1024 * 1024)).toFixed(2);
+      return `${videoFile.name} • ${sizeMb} MB`;
+    }
+    return "Chưa chọn video";
   }, [videoFile]);
+
+  const resolvedVideoPreview = videoPreview;
+  const resolvedThumbnailPreview = thumbnailPreview;
+  const videoPreviewLabel = videoPreview ? "Xem trước trên máy" : null;
+  const thumbnailPreviewLabel = thumbnailPreview ? "Xem trước trên máy" : null;
 
   const handleFieldChange =
     (field: keyof UploadVideoFormState) =>
@@ -152,11 +170,19 @@ export default function UploadVideo() {
           thumbnailFile,
         },
         {
-          onSuccess: () => {
+          onSuccess: (response) => {
             setSuccess(
-              "Đăng video thành công. Bạn có thể kiểm tra lại trong kênh của mình.",
+              `${response.message}. Quay lại trang cá nhân để xem video đã đăng.`,
             );
-            setForm(initialFormState);
+            setForm({
+              title: response.data.title,
+              description: response.data.description,
+              categoryId:
+                response.data.categoryId != null
+                  ? String(response.data.categoryId)
+                  : "",
+              status: response.data.status,
+            });
             setVideoFile(null);
             setThumbnailFile(null);
             reset();
@@ -223,13 +249,16 @@ export default function UploadVideo() {
 
               <UploadVideoFileCard
                 videoSummary={videoSummary}
+                videoPreview={resolvedVideoPreview}
+                previewLabel={videoPreviewLabel}
                 onVideoChange={handleVideoChange}
               />
             </Stack>
 
             <Stack spacing={2.5}>
               <UploadThumbnailCard
-                thumbnailPreview={thumbnailPreview}
+                thumbnailPreview={resolvedThumbnailPreview}
+                previewLabel={thumbnailPreviewLabel}
                 onThumbnailChange={handleThumbnailChange}
               />
 

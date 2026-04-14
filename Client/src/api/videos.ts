@@ -61,8 +61,13 @@ const MOCK_VIDEOS: Video[] = [
   },
 ];
 
-export async function getTrendingVideos(): Promise<Video[]> {
+export async function getTrendingVideos(categoryId?: number): Promise<Video[]> {
   await new Promise((resolve) => setTimeout(resolve, 500));
+
+  if (categoryId != null) {
+    return MOCK_VIDEOS;
+  }
+
   return MOCK_VIDEOS;
 }
 
@@ -94,7 +99,7 @@ export async function getUploadCategories(): Promise<UploadVideoCategory[]> {
 
 export async function createVideo(
   payload: UploadVideoPayload,
-): Promise<UploadVideoResponse> {
+): Promise<ApiResponse<UploadVideoResponse>> {
   const formData = new FormData();
   formData.append("title", payload.title);
   formData.append("description", payload.description);
@@ -108,7 +113,7 @@ export async function createVideo(
   }
 
   const token = localStorage.getItem("access_token");
-  const response = await fetch(`${API_BASE_URL}/videos`, {
+  const response = await fetch(`${API_BASE_URL}/user/upload/video`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,
@@ -129,5 +134,5 @@ export async function createVideo(
     throw new Error(message);
   }
 
-  return (await response.json()) as UploadVideoResponse;
+  return (await response.json()) as ApiResponse<UploadVideoResponse>;
 }

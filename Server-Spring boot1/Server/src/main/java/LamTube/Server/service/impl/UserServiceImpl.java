@@ -1,0 +1,238 @@
+package LamTube.Server.service.impl;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import LamTube.Server.converter.user.ConvertEntityToResponseDTO;
+import LamTube.Server.dto.UserInfoAdminUpdateDTO;
+import LamTube.Server.dto.UserInfoResponseDTO;
+import LamTube.Server.dto.UserInforAdminDTO;
+import LamTube.Server.dto.UserLoginDTO;
+import LamTube.Server.dto.UserRegisterDTO;
+import LamTube.Server.dto.UserRegisterResponseDTO;
+import LamTube.Server.dto.UserRequestCreateDTO;
+import LamTube.Server.dto.UserRequestUpdateDTO;
+import LamTube.Server.dto.UserResponseDTO;
+import LamTube.Server.dto.base.PagedResponseDTO;
+import LamTube.Server.enums.role;
+import LamTube.Server.model.RoleEntity;
+import LamTube.Server.model.UserEntity;
+import LamTube.Server.model.UserProfileEntity;
+import LamTube.Server.repository.RoleRepository;
+import LamTube.Server.repository.UserProfileRepository;
+import LamTube.Server.repository.UserRepository;
+import LamTube.Server.service.IUserService;
+import LamTube.Server.utils.JwtTokenUtils;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class UserServiceImpl implements IUserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenUtils jwtTokenUtils;
+    private final RoleRepository roleRepository;
+    private final UserProfileRepository userProfileRepository;
+
+    @Override
+    public UserRegisterResponseDTO createUser(UserRegisterDTO dto) {
+        if (userRepository.findByEmailAndIsDeletedFalse(dto.getEmail()).isPresent()) {
+            throw new RuntimeException("Email đã tồn tại");
+        }
+
+        UserEntity user = new UserEntity();
+        user.setEmail(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        
+        RoleEntity roleEntity = roleRepository.findByNameAndIsDeletedFalse(role.ROLE_USER.name())
+                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+        user.setRole(roleEntity);
+
+        UserEntity savedUser = userRepository.save(user);
+
+        UserProfileEntity profile = new UserProfileEntity();
+        profile.setUser(savedUser);
+        profile.setFullName("");
+        profile.setAvatarUrl(""); 
+        profile.setBio("");
+        userProfileRepository.save(profile); 
+
+    return new UserRegisterResponseDTO(savedUser.getId(), savedUser.getEmail());
+}
+    @Override
+    public String login(UserLoginDTO loginDTO) {
+
+        UserEntity userEntity = userRepository.findByEmailAndIsDeletedFalse(loginDTO.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Sai tài khoản hoặc mật khẩu"));
+
+        if (!passwordEncoder.matches(loginDTO.getPassword(), userEntity.getPassword())) {
+            throw new BadCredentialsException("Sai tài khoản hoặc mật khẩu");
+        }
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+            userEntity.getEmail(),
+                loginDTO.getPassword(),
+                userEntity.getAuthorities()
+        );
+
+        authenticationManager.authenticate(authenticationToken);
+
+        return jwtTokenUtils.generateToken(userEntity.getEmail());
+    }
+
+    @Override
+    public UserResponseDTO findByEmail(String email) {
+        return userRepository.findByEmailAndIsDeletedFalse(email)
+                .map(user -> new UserResponseDTO(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getRole().getName()
+                ))
+                .orElse(null);  
+    }
+
+        @Override
+        public PagedResponseDTO<UserResponseDTO> getAllUsers(String email, String role, int page, int size) {
+        boolean hasEmail = email != null && !email.isBlank();
+        boolean hasRole = role != null && !role.isBlank();
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<UserEntity> usersPage;
+        if (!hasEmail && !hasRole) {
+            usersPage = userRepository.findAllByIsDeletedFalse(pageable);
+        } else {
+            usersPage = userRepository.searchUsers(
+                hasEmail ? email : null,
+                hasRole ? role : null,
+                pageable
+            );
+        }
+
+        List<UserResponseDTO> items = usersPage.stream()
+            .map(user -> new UserResponseDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getRole().getName()
+            ))
+            .collect(Collectors.toList());
+
+        return new PagedResponseDTO<>(
+            items,
+            usersPage.getNumber(),
+            usersPage.getSize(),
+            usersPage.getTotalElements(),
+            usersPage.getTotalPages()
+        );
+        }
+
+        @Override
+        public UserInfoResponseDTO getUserInfo(String email) {
+            return userProfileRepository.findByUser_Email(email)
+                    .map(profile -> {
+                        UserInfoResponseDTO dto = new UserInfoResponseDTO();
+                        dto.setEmail(profile.getUser().getEmail());
+                        dto.setId(profile.getUser().getId());
+                        dto.setFullname(profile.getFullName());
+                        dto.setBio(profile.getBio());
+                        dto.setAvatarUrl(profile.getAvatarUrl());
+                        return dto;
+                    })
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
+        }
+        @Override
+        public void updateUserInfo(String email, UserRequestUpdateDTO updateDTO) {
+            UserProfileEntity profile = userProfileRepository.findByUser_Email(email)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
+
+            profile.setFullName(updateDTO.getFullname());
+            profile.setBio(updateDTO.getBio());
+            profile.setAvatarUrl(updateDTO.getAvatarUrl());
+
+            userProfileRepository.save(profile);
+        }
+        @Override
+        public UserResponseDTO createUser(UserRequestCreateDTO createDTO) {
+            if (userRepository.findByEmailAndIsDeletedFalse(createDTO.getEmail()).isPresent()) {
+                throw new RuntimeException("Email đã tồn tại");
+            }
+
+            UserEntity user = new UserEntity();
+            user.setEmail(createDTO.getEmail());
+            user.setPassword(passwordEncoder.encode(createDTO.getPassword()));
+            
+            RoleEntity roleEntity = roleRepository.findByNameAndIsDeletedFalse(createDTO.getRole())
+                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+            user.setRole(roleEntity);
+
+            UserEntity savedUser = userRepository.save(user);
+
+            UserProfileEntity profile = new UserProfileEntity();
+            profile.setUser(savedUser);
+            profile.setFullName(createDTO.getFullname());
+            userProfileRepository.save(profile);
+            return ConvertEntityToResponseDTO.toUserResponseDTO(savedUser);
+        }
+        @Override
+        public UserInforAdminDTO getUserById(Long userId) {
+            return userRepository.findById(userId)
+                    .map(user -> {
+                        UserProfileEntity profile = userProfileRepository.findByUser_Id(user.getId())
+                                .orElse(new UserProfileEntity());
+                        UserInforAdminDTO dto = new UserInforAdminDTO();
+                        dto.setId(user.getId());
+                        dto.setEmail(user.getEmail());
+                        dto.setFullname(profile.getFullName());
+                        dto.setBio(profile.getBio());
+                        dto.setAvatarUrl(profile.getAvatarUrl());
+                        dto.setRole(user.getRole().getName());
+                        return dto;
+                    })
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        }
+        @Override
+        public void updateUserInfo(Long userId, UserInfoAdminUpdateDTO updateDTO) {
+            UserEntity user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+                if (updateDTO.getPassword() != null && !updateDTO.getPassword().isEmpty()) {
+                    user.setPassword(passwordEncoder.encode(updateDTO.getPassword()));
+                }
+            UserProfileEntity profile = userProfileRepository.findByUser_Id(user.getId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng"));
+            if (updateDTO.getFullname() != null) {
+                profile.setFullName(updateDTO.getFullname());
+            }
+            if (updateDTO.getBio() != null) {
+                profile.setBio(updateDTO.getBio());
+            }
+            if (updateDTO.getAvatarUrl() != null) {
+                profile.setAvatarUrl(updateDTO.getAvatarUrl());
+            }
+            userProfileRepository.save(profile);
+             RoleEntity roleEntity = roleRepository.findByNameAndIsDeletedFalse(updateDTO.getRole())
+                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+            user.setRole(roleEntity);
+            userRepository.save(user);
+        }
+        @Override
+        public void deleteUser(Long userId) {
+            UserEntity user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+            user.setIsDeleted(true);
+            user.setEmail(user.getEmail() + "_del_" + System.currentTimeMillis());
+            userRepository.save(user);
+        }
+}

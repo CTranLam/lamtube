@@ -4,11 +4,13 @@ import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 
 interface UploadThumbnailCardProps {
   thumbnailPreview: string;
+  previewLabel: string | null;
   onThumbnailChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function UploadThumbnailCard({
   thumbnailPreview,
+  previewLabel,
   onThumbnailChange,
 }: UploadThumbnailCardProps) {
   return (
@@ -27,6 +29,24 @@ export function UploadThumbnailCard({
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Thumbnail
           </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            color: "#a1a1aa",
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Xem trước thumbnail
+          </Typography>
+          {previewLabel && (
+            <Typography variant="caption" sx={{ color: "#38bdf8" }}>
+              {previewLabel}
+            </Typography>
+          )}
         </Box>
 
         <Avatar

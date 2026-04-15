@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppBar, Toolbar } from "@mui/material";
 import { NavbarLogo } from "./NavbarLogo";
 import { NavbarSearch } from "./NavbarSearch";
@@ -7,17 +7,25 @@ import { NavbarActions } from "./NavbarActions";
 type NavbarProps = {
   onMenuClick?: () => void;
   onSearchSubmit?: (query: string) => void;
+  initialSearchValue?: string;
 };
 
-export default function Navbar({ onMenuClick, onSearchSubmit }: NavbarProps) {
-  const [searchValue, setSearchValue] = useState("");
+export default function Navbar({
+  onMenuClick,
+  onSearchSubmit,
+  initialSearchValue = "",
+}: NavbarProps) {
+  const [searchValue, setSearchValue] = useState(initialSearchValue);
+
+  useEffect(() => {
+    setSearchValue(initialSearchValue);
+  }, [initialSearchValue]);
 
   const handleSearchSubmit = useCallback(() => {
     const trimmed = searchValue.trim();
-    if (!trimmed) return;
     if (onSearchSubmit) {
       onSearchSubmit(trimmed);
-    } else {
+    } else if (trimmed) {
       console.log("Searching for:", trimmed);
     }
   }, [onSearchSubmit, searchValue]);

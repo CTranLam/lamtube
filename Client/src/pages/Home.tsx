@@ -16,7 +16,10 @@ function parseCategoryFromQuery(value: string | null): HomeCategoryId {
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCategoryId = parseCategoryFromQuery(searchParams.get("category"));
+  const selectedCategoryId = parseCategoryFromQuery(
+    searchParams.get("category"),
+  );
+  const searchTitle = searchParams.get("title")?.trim() ?? "";
 
   const handleCategoryChange = useCallback(
     (id: HomeCategoryId) => {
@@ -39,7 +42,10 @@ export default function Home() {
         selectedCategoryId={selectedCategoryId}
         onCategoryChange={handleCategoryChange}
       />
-      <HomeVideo selectedCategoryId={selectedCategoryId} />
+      <HomeVideo
+        selectedCategoryId={selectedCategoryId}
+        searchTitle={searchTitle}
+      />
     </Box>
   );
 }

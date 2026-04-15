@@ -40,3 +40,29 @@ export interface UploadVideoFormState {
   categoryId: string;
   status: "public" | "private";
 }
+
+export interface VideoDetail {
+  id: number;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  status: string;
+  viewCount: number;
+  categoryName: string | null;
+  categoryId: number | null;
+  uploaderName?: string;
+  uploaderAvatarUrl?: string;
+  subscriberCount?: number;
+  likeCount?: number;
+  dislikeCount?: number;
+  commentCount?: number;
+}
+
+export interface HomeVideoListResult {
+  items: Video[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}

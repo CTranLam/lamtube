@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import { Link } from "react-router-dom";
 import { useMyVideos } from "../../hooks/useMyVideos";
 
 function toStatusLabel(status: "public" | "private") {
@@ -96,10 +97,8 @@ export default function MyVideosPanel() {
             <Paper
               key={video.id}
               elevation={0}
-              component="a"
-              href={video.videoUrl}
-              target="_blank"
-              rel="noreferrer"
+              component={Link}
+              to={`/watch/${video.id}`}
               sx={{
                 display: "block",
                 p: 1.5,
@@ -214,19 +213,8 @@ export default function MyVideosPanel() {
                   </Stack>
 
                   <Stack direction="row" spacing={1}>
-                    <Tooltip title="Mở video ở tab mới">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          window.open(
-                            video.videoUrl,
-                            "_blank",
-                            "noopener,noreferrer",
-                          );
-                        }}
-                      >
+                    <Tooltip title="Mở trang xem chi tiết video">
+                      <Button size="small" variant="outlined">
                         Xem video
                       </Button>
                     </Tooltip>

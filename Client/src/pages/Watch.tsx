@@ -6,14 +6,23 @@ import WatchContent from "../components/watch/WatchContent";
 
 export default function Watch() {
   const { videoId } = useParams<{ videoId: string }>();
-  const { data: video, isLoading, isError } = useVideo(videoId);
+  const { data: video, isLoading, isError, error } = useVideo(videoId);
 
-  if (isError) {
-    return <Box sx={{ p: 2 }}>Không thể tải video. Vui lòng thử lại sau.</Box>;
+  if (isLoading) {
+    return <WatchSkeleton />;
   }
 
-  if (isLoading || !video) {
-    return <WatchSkeleton />;
+  if (isError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        {(error as Error | null)?.message ||
+          "Không thể tải video. Vui lòng thử lại sau."}
+      </Box>
+    );
+  }
+
+  if (!video) {
+    return <Box sx={{ p: 2 }}>Video không tồn tại hoặc đã bị gỡ.</Box>;
   }
 
   return <WatchContent video={video} />;

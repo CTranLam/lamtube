@@ -48,4 +48,8 @@ public class VideoEntity{
     @ManyToOne
     @JoinColumn(name = "category_id")
     private CategoryEntity category;
+
+    @Column(name ="isdeleted")
+    private Boolean isDeleted = false;
+
 }

@@ -53,9 +53,7 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 
 export function NavbarSearch({ value, onChange, onSubmit }: NavbarSearchProps) {
   const handleSubmit = useCallback(() => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    onSubmit?.(trimmed);
+    onSubmit?.(value.trim());
   }, [onSubmit, value]);
 
   return (

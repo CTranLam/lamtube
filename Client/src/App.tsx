@@ -7,6 +7,9 @@ import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
 import Channel from "./pages/Channel";
 import UploadVideo from "./pages/UploadVideo.tsx";
+import Settings from "./pages/Settings.tsx";
+import Help from "./pages/Help.tsx";
+import Feedback from "./pages/Feedback.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import UserManagement from "./pages/admin/UserManagement.tsx";
 import CategoryManagement from "./pages/admin/CategoryManagement.tsx";
@@ -25,6 +28,9 @@ function App() {
         <Route index element={<Home />} />
         <Route path="channel" element={<Channel />} />
         <Route path="upload" element={<UploadVideo />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="help" element={<Help />} />
+        <Route path="feedback" element={<Feedback />} />
         <Route path="watch/:videoId" element={<Watch />} />
       </Route>
     </Routes>

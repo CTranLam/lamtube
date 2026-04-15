@@ -29,7 +29,8 @@ public class WebSecurityConfig {
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(requests -> {
                     requests
-                            .requestMatchers("/api/register", "/api/login", "/error", "/api/categories").permitAll()
+                            .requestMatchers("/api/register", "/api/login", "/error", "/api/categories", "/api/videos/**")
+                            .permitAll()
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/user/upload-avatar").hasAnyRole("USER", "ADMIN")
                             .requestMatchers("/api/user/**").hasAnyRole("USER")

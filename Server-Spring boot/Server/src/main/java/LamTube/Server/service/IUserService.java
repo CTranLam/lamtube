@@ -15,7 +15,6 @@ import LamTube.Server.dto.UserRequestCreateDTO;
 import LamTube.Server.dto.UserRequestUpdateDTO;
 import LamTube.Server.dto.UserResponseDTO;
 import LamTube.Server.dto.VideoResponseDTO;
-import LamTube.Server.dto.SubscribedChannelResponse;
 
 public interface IUserService {
 
@@ -40,8 +39,4 @@ public interface IUserService {
     void deleteUser(Long userId);
 
     List<VideoResponseDTO> getUserVideos(String email);
-
-    PagedResponseDTO<VideoResponseDTO> getSubscriptionVideos(String email, int page, int size);
-
-    List<SubscribedChannelResponse> getSubscribedChannels(String email);
 }

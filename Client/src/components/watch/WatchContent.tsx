@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Avatar,
   Box,
@@ -14,14 +14,26 @@ import {
   ThumbDownAltOutlined as ThumbDownIcon,
   ThumbUpAltOutlined as ThumbUpIcon,
 } from "@mui/icons-material";
-import type { VideoDetail } from "../../types/video";
+import { useNavigate } from "react-router-dom";
+import { getVideoReactionSummary, setVideoReaction } from "../../api/videos";
+import type { VideoDetail, VideoReactionType } from "../../types/video";
 import { useAuth } from "../../hooks/useAuth";
+import LoginRequiredModal from "../common/LoginRequiredModal";
 
 type WatchContentProps = {
   video: VideoDetail;
+  isSubscribed: boolean;
+  subscriberCount: number;
+  isSubscribing: boolean;
+  subscribeError: string | null;
+  clearSubscribeError: () => void;
+  onToggleSubscribe: () => Promise<{
+    ok: boolean;
+    requiresLogin?: boolean;
+  }>;
 };
 
-type ReactionType = "like" | "dislike" | null;
+type ReactionType = VideoReactionType | null;
 
 type WatchComment = {
   id: number;
@@ -46,8 +58,17 @@ function buildDefaultComments(video: VideoDetail): WatchComment[] {
   ];
 }
 
-export default function WatchContent({ video }: WatchContentProps) {
+export default function WatchContent({
+  video,
+  isSubscribed,
+  subscriberCount,
+  isSubscribing,
+  subscribeError,
+  clearSubscribeError,
+  onToggleSubscribe,
+}: WatchContentProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const formattedViewCount = `${new Intl.NumberFormat("vi-VN").format(
     video.viewCount,
   )} lượt xem`;
@@ -55,30 +76,75 @@ export default function WatchContent({ video }: WatchContentProps) {
     video.status?.toLowerCase() === "private" ? "Riêng tư" : "Công khai";
   const uploaderName = video.uploaderName?.trim() || "LamTube";
   const uploaderAvatarUrl = video.uploaderAvatarUrl || "";
-  const subscriberCount = Number(video.subscriberCount) || 0;
   const baseLikeCount = Number(video.likeCount) || 0;
   const baseDislikeCount = Number(video.dislikeCount) || 0;
 
   const [reaction, setReaction] = useState<ReactionType>(null);
+  const [likeCount, setLikeCount] = useState(baseLikeCount);
+  const [dislikeCount, setDislikeCount] = useState(baseDislikeCount);
+  const [isReacting, setIsReacting] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [comments, setComments] = useState<WatchComment[]>(() =>
     buildDefaultComments(video),
   );
 
-  const displayLikeCount = useMemo(() => {
-    if (reaction === "like") return baseLikeCount + 1;
-    return baseLikeCount;
-  }, [baseLikeCount, reaction]);
-
-  const displayDislikeCount = useMemo(() => {
-    if (reaction === "dislike") return baseDislikeCount + 1;
-    return baseDislikeCount;
-  }, [baseDislikeCount, reaction]);
-
   const commentCount = comments.length;
 
-  const toggleReaction = (nextReaction: Exclude<ReactionType, null>) => {
-    setReaction((prev) => (prev === nextReaction ? null : nextReaction));
+  useEffect(() => {
+    let isCancelled = false;
+
+    setReaction(null);
+    setLikeCount(baseLikeCount);
+    setDislikeCount(baseDislikeCount);
+    setReactionError(null);
+
+    const loadReactionSummary = async () => {
+      try {
+        const summary = await getVideoReactionSummary(video.id);
+        if (isCancelled) return;
+        setReaction(summary.myReaction);
+        setLikeCount(summary.likeCount);
+        setDislikeCount(summary.dislikeCount);
+      } catch {
+        if (isCancelled) return;
+      }
+    };
+
+    void loadReactionSummary();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [baseDislikeCount, baseLikeCount, user?.id, video.id]);
+
+  const toggleReaction = async (nextReaction: Exclude<ReactionType, null>) => {
+    if (!user) {
+      setReactionError("Vui lòng đăng nhập để thực hiện phản hồi.");
+      return;
+    }
+
+    if (isReacting) return;
+
+    setIsReacting(true);
+    setReactionError(null);
+
+    const payload: ReactionType =
+      reaction === nextReaction ? null : nextReaction;
+
+    try {
+      const summary = await setVideoReaction(video.id, payload);
+      setReaction(summary.myReaction);
+      setLikeCount(summary.likeCount);
+      setDislikeCount(summary.dislikeCount);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Không thể cập nhật phản hồi.";
+      setReactionError(message);
+    } finally {
+      setIsReacting(false);
+    }
   };
 
   const handleSubmitComment = () => {
@@ -94,6 +160,14 @@ export default function WatchContent({ video }: WatchContentProps) {
 
     setComments((prev) => [nextComment, ...prev]);
     setCommentInput("");
+  };
+
+  const handleToggleSubscribe = async () => {
+    clearSubscribeError();
+    const result = await onToggleSubscribe();
+    if (result.requiresLogin) {
+      setIsLoginModalOpen(true);
+    }
   };
 
   return (
@@ -136,32 +210,12 @@ export default function WatchContent({ video }: WatchContentProps) {
         />
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
+      <Typography
+        variant="body2"
+        sx={{ whiteSpace: "pre-line", color: "#ddd", mb: 2.5 }}
       >
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant={reaction === "like" ? "contained" : "outlined"}
-            startIcon={<ThumbUpIcon />}
-            onClick={() => toggleReaction("like")}
-            sx={{ textTransform: "none", borderRadius: 99 }}
-          >
-            Thích {formatCount(displayLikeCount)}
-          </Button>
-          <Button
-            variant={reaction === "dislike" ? "contained" : "outlined"}
-            startIcon={<ThumbDownIcon />}
-            onClick={() => toggleReaction("dislike")}
-            sx={{ textTransform: "none", borderRadius: 99 }}
-          >
-            Không thích {formatCount(displayDislikeCount)}
-          </Button>
-        </Stack>
-      </Stack>
-
+        {video.description || "Không có mô tả"}
+      </Typography>
       <Paper
         sx={{
           bgcolor: "#181818",
@@ -170,30 +224,89 @@ export default function WatchContent({ video }: WatchContentProps) {
           mb: 2,
         }}
       >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Avatar src={uploaderAvatarUrl || undefined} sx={{ width: 48, height: 48 }}>
-            {uploaderName.charAt(0).toUpperCase()}
-          </Avatar>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700 }} noWrap>
-              {uploaderName}
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#b3b3b3" }}>
-              {formatCount(subscriberCount)} người đăng ký
-            </Typography>
-          </Box>
-          <Button variant="contained" sx={{ textTransform: "none", borderRadius: 99 }}>
-            Đăng ký
-          </Button>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={1.5}
+          justifyContent="space-between"
+          alignItems={{ xs: "stretch", md: "center" }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Avatar
+              src={uploaderAvatarUrl || undefined}
+              sx={{ width: 48, height: 48 }}
+            >
+              {uploaderName.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700 }} noWrap>
+                {uploaderName}
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#b3b3b3" }}>
+                {formatCount(subscriberCount)} người đăng ký
+              </Typography>
+            </Box>
+            <Button
+              variant={isSubscribed ? "outlined" : "contained"}
+              onClick={() => {
+                void handleToggleSubscribe();
+              }}
+              disabled={isSubscribing}
+              sx={{ textTransform: "none", borderRadius: 99 }}
+            >
+              {isSubscribing
+                ? "Đang xử lý..."
+                : isSubscribed
+                  ? "Đã đăng ký"
+                  : "Đăng ký"}
+            </Button>
+          </Stack>
+
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent={{ xs: "flex-start", md: "flex-end" }}
+          >
+            <Button
+              variant={reaction === "like" ? "contained" : "outlined"}
+              startIcon={<ThumbUpIcon />}
+              onClick={() => {
+                void toggleReaction("like");
+              }}
+              disabled={isReacting}
+              sx={{ textTransform: "none", borderRadius: 99 }}
+            >
+              Thích {formatCount(likeCount)}
+            </Button>
+            <Button
+              variant={reaction === "dislike" ? "contained" : "outlined"}
+              startIcon={<ThumbDownIcon />}
+              onClick={() => {
+                void toggleReaction("dislike");
+              }}
+              disabled={isReacting}
+              sx={{ textTransform: "none", borderRadius: 99 }}
+            >
+              Không thích {formatCount(dislikeCount)}
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
-
-      <Typography
-        variant="body2"
-        sx={{ whiteSpace: "pre-line", color: "#ddd", mb: 2.5 }}
-      >
-        {video.description || "Không có mô tả"}
-      </Typography>
+      {reactionError ? (
+        <Typography
+          variant="caption"
+          sx={{ color: "#ef4444", display: "block", mb: 2 }}
+        >
+          {reactionError}
+        </Typography>
+      ) : null}
+      {subscribeError ? (
+        <Typography
+          variant="caption"
+          sx={{ color: "#ef4444", display: "block", mb: 2 }}
+        >
+          {subscribeError}
+        </Typography>
+      ) : null}
 
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mb: 2.5 }} />
 
@@ -245,7 +358,10 @@ export default function WatchContent({ video }: WatchContentProps) {
                     {comment.createdAt}
                   </Typography>
                 </Stack>
-                <Typography variant="body2" sx={{ color: "#e5e5e5", whiteSpace: "pre-wrap" }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "#e5e5e5", whiteSpace: "pre-wrap" }}
+                >
                   {comment.content}
                 </Typography>
               </Box>
@@ -253,6 +369,14 @@ export default function WatchContent({ video }: WatchContentProps) {
           </Paper>
         ))}
       </Stack>
+      <LoginRequiredModal
+        open={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={() => {
+          setIsLoginModalOpen(false);
+          navigate("/login");
+        }}
+      />
     </Box>
   );
 }

@@ -14,12 +14,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import LamTube.Server.dto.SubscribedChannelResponse;
 import LamTube.Server.dto.UserInfoResponseDTO;
 import LamTube.Server.dto.UserRequestUpdateDTO;
 import LamTube.Server.dto.VideoRequestDTO;
 import LamTube.Server.dto.VideoResponseDTO;
-import LamTube.Server.dto.base.PagedResponseDTO;
 import LamTube.Server.dto.base.ResponseDTO;
 import LamTube.Server.service.IUploadService;
 import LamTube.Server.service.IUserService;
@@ -112,39 +110,4 @@ public class UserController {
             return ResponseEntity.badRequest().body(new ResponseDTO<>(e.getMessage(), null));
         }
     }
-
-    @GetMapping("/subscriptions/videos")
-    public ResponseEntity<ResponseDTO<PagedResponseDTO<VideoResponseDTO>>> getSubscriptionVideos(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "16") int size,
-            Principal principal) {
-        try {
-            String email = principal.getName();
-            if (email == null || email.isEmpty()) {
-                return ResponseEntity.badRequest().body(new ResponseDTO<>("Email người dùng không hợp lệ", null));
-            }
-
-            PagedResponseDTO<VideoResponseDTO> response = userService.getSubscriptionVideos(email, page, size);
-            return ResponseEntity.ok(new ResponseDTO<>("Lấy danh sách video kênh đã đăng ký thành công", response));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ResponseDTO<>(e.getMessage(), null));
-        }
-    }
-
-    @GetMapping("/subscriptions/channels")
-    public ResponseEntity<ResponseDTO<List<SubscribedChannelResponse>>> getSubscribedChannels(Principal principal) {
-        try {
-            String email = principal.getName();
-            if (email == null || email.isEmpty()) {
-                return ResponseEntity.badRequest().body(new ResponseDTO<>("Email người dùng không hợp lệ", null));
-            }
-
-            List<SubscribedChannelResponse> response = userService.getSubscribedChannels(email);
-            return ResponseEntity.ok(new ResponseDTO<>("Lấy danh sách kênh đã đăng ký thành công", response));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ResponseDTO<>(e.getMessage(), null));
-        }
-    }
-
-
 }

@@ -6,7 +6,18 @@ import WatchContent from "../components/watch/WatchContent";
 
 export default function Watch() {
   const { videoId } = useParams<{ videoId: string }>();
-  const { data: video, isLoading, isError, error } = useVideo(videoId);
+  const {
+    video,
+    isLoading,
+    isError,
+    error,
+    isSubscribed,
+    subscriberCount,
+    isSubscribing,
+    subscribeError,
+    clearSubscribeError,
+    toggleSubscribe,
+  } = useVideo(videoId);
 
   if (isLoading) {
     return <WatchSkeleton />;
@@ -25,5 +36,15 @@ export default function Watch() {
     return <Box sx={{ p: 2 }}>Video không tồn tại hoặc đã bị gỡ.</Box>;
   }
 
-  return <WatchContent video={video} />;
+  return (
+    <WatchContent
+      video={video}
+      isSubscribed={isSubscribed}
+      subscriberCount={subscriberCount}
+      isSubscribing={isSubscribing}
+      subscribeError={subscribeError}
+      clearSubscribeError={clearSubscribeError}
+      onToggleSubscribe={toggleSubscribe}
+    />
+  );
 }

@@ -10,6 +10,7 @@ import UploadVideo from "./pages/UploadVideo.tsx";
 import Settings from "./pages/Settings.tsx";
 import Help from "./pages/Help.tsx";
 import Feedback from "./pages/Feedback.tsx";
+import Subscriptions from "./pages/Subscriptions.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import UserManagement from "./pages/admin/UserManagement.tsx";
 import CategoryManagement from "./pages/admin/CategoryManagement.tsx";
@@ -31,6 +32,7 @@ function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="help" element={<Help />} />
         <Route path="feedback" element={<Feedback />} />
+        <Route path="subscriptions" element={<Subscriptions />} />
         <Route path="watch/:videoId" element={<Watch />} />
       </Route>
     </Routes>

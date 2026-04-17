@@ -43,6 +43,7 @@ export interface UploadVideoFormState {
 
 export interface VideoDetail {
   id: number;
+  channelId: number | null;
   title: string;
   description: string;
   thumbnailUrl: string;
@@ -53,10 +54,19 @@ export interface VideoDetail {
   categoryId: number | null;
   uploaderName?: string;
   uploaderAvatarUrl?: string;
-  subscriberCount?: number;
+  isSubscribed: boolean;
+  subscriberCount: number;
   likeCount?: number;
   dislikeCount?: number;
   commentCount?: number;
+}
+
+export type VideoReactionType = "like" | "dislike";
+
+export interface VideoReactionSummary {
+  likeCount: number;
+  dislikeCount: number;
+  myReaction: VideoReactionType | null;
 }
 
 export interface HomeVideoListResult {

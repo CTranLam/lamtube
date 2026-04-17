@@ -5,9 +5,10 @@ import type {
   UploadVideoResponse,
   Video,
   VideoDetail,
+  VideoReactionSummary,
+  VideoReactionType,
 } from "../types/video";
 import type { ApiResponse, PagedResponse } from "../types/auth";
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type GetHomeVideosParams = {
@@ -29,8 +30,132 @@ type VideoApiItem = {
   categoryId?: number | null;
 };
 
+type VideoDetailApiItem = {
+  id?: number | string;
+  channelId?: number | string | null;
+  uploaderId?: number | string | null;
+  title?: string;
+  description?: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  status?: string;
+  viewCount?: number | string | null;
+  categoryName?: string | null;
+  categoryId?: number | string | null;
+  uploaderName?: string;
+  uploaderAvatarUrl?: string;
+  subscriberCount?: number | string | null;
+  isSubscribed?: boolean | string | null;
+  likeCount?: number | string | null;
+  dislikeCount?: number | string | null;
+  commentCount?: number | string | null;
+};
+
+type VideoReactionSummaryApiItem = {
+  likeCount?: number | string | null;
+  dislikeCount?: number | string | null;
+  myReaction?: string | null;
+  reactionType?: string | null;
+  type?: string | null;
+};
+
+type ChannelSubscribeSummary = {
+  isSubscribed: boolean;
+  subscriberCount: number;
+};
+
+export class ApiRequestError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, options?: { status?: number; code?: string }) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = options?.status ?? 0;
+    this.code = options?.code;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function getErrorMessage(body: unknown, fallback: string): string {
+  if (
+    isRecord(body) &&
+    typeof body.message === "string" &&
+    body.message.trim()
+  ) {
+    return body.message;
+  }
+  return fallback;
+}
+
+function getErrorCode(body: unknown): string | undefined {
+  if (isRecord(body) && typeof body.code === "string" && body.code.trim()) {
+    return body.code;
+  }
+  return undefined;
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return fallback;
+}
+
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem("access_token");
+  return token
+    ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+    : {
+        "Content-Type": "application/json",
+      };
+}
+
+async function parseJsonBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function unwrapApiData(body: unknown): unknown {
+  const wrapped = isRecord(body)
+    ? (body as Partial<ApiResponse<unknown>>)
+    : null;
+  return wrapped && "data" in wrapped ? wrapped.data : body;
+}
+
+function throwApiError(
+  response: Response,
+  body: unknown,
+  fallback: string,
+): never {
+  throw new ApiRequestError(getErrorMessage(body, fallback), {
+    status: response.status,
+    code: getErrorCode(body),
+  });
 }
 
 function normalizeMediaUrl(url: string | undefined): string {
@@ -188,46 +313,22 @@ export async function getVideoById(
   if (!id) return undefined;
 
   if (API_BASE_URL?.trim()) {
-    const token = localStorage.getItem("access_token");
     const response = await fetch(`${API_BASE_URL}/videos/${id}`, {
       method: "GET",
-      headers: token
-        ? {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          }
-        : {
-            "Content-Type": "application/json",
-          },
+      headers: getAuthHeaders(),
     });
 
-    const text = await response.text();
-    let body: unknown;
-    if (text) {
-      try {
-        body = JSON.parse(text) as unknown;
-      } catch {
-        body = null;
-      }
-    }
+    const body = await parseJsonBody(response);
 
     if (response.status === 404) {
       return undefined;
     }
 
     if (!response.ok) {
-      const message =
-        typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string"
-          ? body.message
-          : "Không thể tải video";
-      throw new Error(message);
+      throwApiError(response, body, "Không thể tải video");
     }
 
-    const wrapped = body as ApiResponse<VideoDetail> | null;
-    const raw = wrapped?.data ?? (body as VideoDetail | null);
+    const raw = unwrapApiData(body);
     if (!raw) return undefined;
     return normalizeVideoDetail(raw);
   }
@@ -235,31 +336,184 @@ export async function getVideoById(
   return undefined;
 }
 
-function normalizeVideoDetail(video: VideoDetail): VideoDetail {
+function normalizeVideoDetail(value: unknown): VideoDetail {
+  const video = isRecord(value) ? (value as VideoDetailApiItem) : {};
+  const rawId = toNumber(video.id);
   const streamUrl = buildVideoStreamUrl(video.id);
   const uploaderName = video.uploaderName?.trim() || "LamTube";
   const uploaderAvatarUrl = normalizeMediaUrl(video.uploaderAvatarUrl);
-  const subscriberCount = Number(video.subscriberCount);
-  const likeCount = Number(video.likeCount);
-  const dislikeCount = Number(video.dislikeCount);
-  const commentCount = Number(video.commentCount);
+  const subscriberCount = toNumber(video.subscriberCount);
+  const likeCount = toNumber(video.likeCount);
+  const dislikeCount = toNumber(video.dislikeCount);
+  const commentCount = toNumber(video.commentCount);
+  const channelId =
+    toNullableNumber(video.channelId) ?? toNullableNumber(video.uploaderId);
 
   return {
-    id: Number(video.id),
+    id: rawId,
+    channelId,
     title: video.title || "",
     description: video.description || "",
     thumbnailUrl: normalizeMediaUrl(video.thumbnailUrl),
     videoUrl: streamUrl || normalizeMediaUrl(video.videoUrl),
     status: video.status || "public",
-    viewCount: Number(video.viewCount) || 0,
+    viewCount: toNumber(video.viewCount),
     categoryName: video.categoryName ?? null,
-    categoryId: video.categoryId ?? null,
+    categoryId: toNullableNumber(video.categoryId),
     uploaderName,
     uploaderAvatarUrl,
-    subscriberCount: Number.isFinite(subscriberCount) ? subscriberCount : 0,
-    likeCount: Number.isFinite(likeCount) ? likeCount : 0,
-    dislikeCount: Number.isFinite(dislikeCount) ? dislikeCount : 0,
-    commentCount: Number.isFinite(commentCount) ? commentCount : 0,
+    isSubscribed: toBoolean(video.isSubscribed),
+    subscriberCount,
+    likeCount,
+    dislikeCount,
+    commentCount,
+  };
+}
+
+function normalizeReactionType(value: unknown): VideoReactionType | null {
+  if (value === "like" || value === "dislike") return value;
+  return null;
+}
+
+function normalizeReactionSummary(
+  value: unknown,
+  fallback?: Partial<VideoReactionSummary>,
+): VideoReactionSummary {
+  const summary = isRecord(value) ? (value as VideoReactionSummaryApiItem) : {};
+  const rawReaction =
+    summary.myReaction ?? summary.reactionType ?? summary.type;
+  const likeCount = Number(summary.likeCount);
+  const dislikeCount = Number(summary.dislikeCount);
+
+  return {
+    likeCount: Number.isFinite(likeCount)
+      ? likeCount
+      : (fallback?.likeCount ?? 0),
+    dislikeCount: Number.isFinite(dislikeCount)
+      ? dislikeCount
+      : (fallback?.dislikeCount ?? 0),
+    myReaction:
+      normalizeReactionType(rawReaction) ?? fallback?.myReaction ?? null,
+  };
+}
+
+export async function getVideoReactionSummary(
+  videoId: string | number,
+): Promise<VideoReactionSummary> {
+  const response = await fetch(
+    `${API_BASE_URL}/videos/${videoId}/reaction-summary`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  const body = await parseJsonBody(response);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throwApiError(
+        response,
+        body,
+        "Vui lòng đăng nhập để sử dụng chức năng phản hồi.",
+      );
+    }
+    throwApiError(response, body, "Không thể tải dữ liệu phản hồi.");
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeReactionSummary(raw);
+}
+
+export async function setVideoReaction(
+  videoId: string | number,
+  reactionType: VideoReactionType | null,
+): Promise<VideoReactionSummary> {
+  const response = await fetch(`${API_BASE_URL}/videos/${videoId}/reaction`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ type: reactionType }),
+  });
+
+  const body = await parseJsonBody(response);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throwApiError(
+        response,
+        body,
+        "Vui lòng đăng nhập để sử dụng chức năng phản hồi.",
+      );
+    }
+    throwApiError(response, body, "Không thể cập nhật phản hồi.");
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeReactionSummary(raw);
+}
+
+function normalizeChannelSubscribeSummary(
+  value: unknown,
+): ChannelSubscribeSummary {
+  const summary = isRecord(value)
+    ? (value as Partial<ChannelSubscribeSummary>)
+    : {};
+  return {
+    isSubscribed: toBoolean(summary.isSubscribed, true),
+    subscriberCount: toNumber(summary.subscriberCount, 0),
+  };
+}
+
+async function mutateChannelSubscription(
+  channelId: string | number,
+  method: "POST" | "DELETE",
+  fallbackMessage: string,
+): Promise<ChannelSubscribeSummary> {
+  const response = await fetch(
+    `${API_BASE_URL}/channels/${channelId}/subscribe`,
+    {
+      method,
+      headers: getAuthHeaders(),
+    },
+  );
+
+  const body = await parseJsonBody(response);
+  if (!response.ok) {
+    if (response.status === 401) {
+      throwApiError(
+        response,
+        body,
+        "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      );
+    }
+    throwApiError(response, body, fallbackMessage);
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeChannelSubscribeSummary(raw);
+}
+
+export async function subscribeChannel(
+  channelId: string | number,
+): Promise<ChannelSubscribeSummary> {
+  return mutateChannelSubscription(
+    channelId,
+    "POST",
+    "Không thể đăng ký kênh vào lúc này.",
+  );
+}
+
+export async function unsubscribeChannel(
+  channelId: string | number,
+): Promise<ChannelSubscribeSummary> {
+  const summary = await mutateChannelSubscription(
+    channelId,
+    "DELETE",
+    "Không thể hủy đăng ký kênh vào lúc này.",
+  );
+  return {
+    isSubscribed: false,
+    subscriberCount: summary.subscriberCount,
   };
 }
 

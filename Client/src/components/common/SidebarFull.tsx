@@ -1,13 +1,25 @@
-import { Box, Divider, List, Typography } from "@mui/material";
 import {
-  MAIN_NAV,
-  YOU_NAV,
-  EXPLORE_NAV,
-  SETTINGS_NAV,
-} from "../../constants/navigation.constant";
+  Avatar,
+  Box,
+  Divider,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Typography,
+} from "@mui/material";
+import { Link } from "react-router-dom";
+import { MAIN_NAV, YOU_NAV, SETTINGS_NAV } from "../../constants/navigation.constant";
 import { SidebarNavItemComponent } from "./SidebarNavItem";
+import { useAuth } from "../../hooks/useAuth";
+import { useSubscribedChannels } from "../../hooks/useSubscribedChannels";
 
 export function SidebarFull() {
+  const { user } = useAuth();
+  const { data: subscribedChannels = [], isLoading } = useSubscribedChannels(
+    Boolean(user),
+  );
+
   return (
     <Box
       sx={{
@@ -57,7 +69,7 @@ export function SidebarFull() {
         </List>
         <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
 
-        {/* Explore section */}
+        {/* Subscribed channels section */}
         <Typography
           variant="caption"
           sx={{
@@ -69,12 +81,69 @@ export function SidebarFull() {
             color: "#aaa",
           }}
         >
-          Khám phá
+          Kênh đã đăng ký
         </Typography>
         <List>
-          {EXPLORE_NAV.map((item) => (
-            <SidebarNavItemComponent key={item.id} item={item} />
-          ))}
+          {!user ? (
+            <ListItem sx={{ px: 2 }}>
+              <Typography variant="body2" sx={{ color: "#777" }}>
+                Đăng nhập để xem kênh đã đăng ký
+              </Typography>
+            </ListItem>
+          ) : isLoading ? (
+            <ListItem sx={{ px: 2 }}>
+              <Typography variant="body2" sx={{ color: "#777" }}>
+                Đang tải...
+              </Typography>
+            </ListItem>
+          ) : subscribedChannels.length === 0 ? (
+            <ListItem sx={{ px: 2 }}>
+              <Typography variant="body2" sx={{ color: "#777" }}>
+                Chưa có kênh đăng ký
+              </Typography>
+            </ListItem>
+          ) : (
+            subscribedChannels.slice(0, 8).map((channel) => (
+              <ListItem key={`${channel.channelId}-${channel.channelHandle}`} disablePadding>
+                <ListItemButton
+                  component={Link}
+                  to="/subscriptions"
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    color: "#aaa",
+                    "&:hover": {
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      color: "#fff",
+                    },
+                  }}
+                >
+                  <Avatar
+                    src={channel.avatarUrl || undefined}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      mr: 1.5,
+                      fontSize: 12,
+                      bgcolor: "#d32f2f",
+                    }}
+                  >
+                    {channel.channelName.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <ListItemText
+                    primary={channel.channelName}
+                    slotProps={{
+                      primary: {
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        noWrap: true,
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))
+          )}
         </List>
         <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
 

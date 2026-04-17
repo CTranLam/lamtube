@@ -9,6 +9,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -20,16 +21,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import LamTube.Server.configuration.RustFsProperties;
+import LamTube.Server.dto.VideoReactionSummaryDTO;
 import LamTube.Server.dto.VideoResponseDTO;
 import LamTube.Server.dto.base.PagedResponseDTO;
 import LamTube.Server.exception.AccessDeniedException;
 import LamTube.Server.exception.ResourceNotFoundException;
 import LamTube.Server.model.UserEntity;
+import LamTube.Server.model.UserProfileEntity;
 import LamTube.Server.model.VideoEntity;
+import LamTube.Server.model.VideoReactionEntity;
+import LamTube.Server.repository.SubscriptionRepository;
+import LamTube.Server.repository.UserProfileRepository;
 import LamTube.Server.repository.UserRepository;
+import LamTube.Server.repository.VideoReactionRepository;
 import LamTube.Server.repository.VideoRepository;
 import LamTube.Server.service.IVideoService;
 import lombok.RequiredArgsConstructor;
@@ -46,31 +54,16 @@ public class VideoServiceImpl implements IVideoService {
 
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final VideoReactionRepository videoReactionRepository;
     private final RustFsProperties rustFsProperties;
     private final S3Client rustFsS3Client;
 
     @Override
     public VideoResponseDTO getVideoById(Long videoId, String requesterEmail) {
-        VideoEntity videoEntity = videoRepository.findByIdAndIsDeletedFalse(videoId);
-        if (videoEntity == null) {
-            throw new ResourceNotFoundException("Video không tồn tại hoặc đã bị xóa.");
-        }
-
-        String status = videoEntity.getStatus() == null ? "public" : videoEntity.getStatus().trim().toLowerCase();
-        if (!"public".equals(status)) {
-            if (requesterEmail == null || requesterEmail.isBlank()) {
-                throw new AccessDeniedException("Bạn không có quyền xem video này.");
-            }
-
-            UserEntity requester = userRepository.findByEmailAndIsDeletedFalse(requesterEmail)
-                    .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền xem video này."));
-
-            if (!requester.getId().equals(videoEntity.getUser().getId())) {
-                throw new AccessDeniedException("Bạn không có quyền xem video này.");
-            }
-        }
-
-        return convertToDTO(videoEntity);
+        VideoEntity videoEntity = getAccessibleVideoEntity(videoId, requesterEmail);
+        return convertToDTO(videoEntity, requesterEmail);
     }
 
     @Override
@@ -82,16 +75,37 @@ public class VideoServiceImpl implements IVideoService {
             throw new IllegalArgumentException("Size phải lớn hơn 0");
         }
 
+        String normalizedTitle = title == null ? null : title.trim();
+        if (normalizedTitle != null && normalizedTitle.isEmpty()) {
+            normalizedTitle = null;
+        }
+
         Pageable pageable = PageRequest.of(
                 page,
                 size,
                 Sort.by(Sort.Order.desc("viewCount"), Sort.Order.desc("id")));
 
-        Page<VideoEntity> videosPage = videoRepository.searchHomeVideos(categoryId, title, pageable);
+        Page<VideoEntity> videosPage;
+        if (categoryId != null && normalizedTitle != null) {
+            videosPage = videoRepository.findByIsDeletedFalseAndStatusAndCategory_IdAndTitleContainingIgnoreCase(
+                    "public",
+                    categoryId,
+                    normalizedTitle,
+                    pageable);
+        } else if (categoryId != null) {
+            videosPage = videoRepository.findByIsDeletedFalseAndStatusAndCategory_Id("public", categoryId, pageable);
+        } else if (normalizedTitle != null) {
+            videosPage = videoRepository.findByIsDeletedFalseAndStatusAndTitleContainingIgnoreCase(
+                    "public",
+                    normalizedTitle,
+                    pageable);
+        } else {
+            videosPage = videoRepository.findByIsDeletedFalseAndStatus("public", pageable);
+        }
 
         List<VideoResponseDTO> items = videosPage.getContent()
                 .stream()
-                .map(this::convertToDTO)
+                .map(video -> convertToDTO(video, null))
                 .collect(Collectors.toList());
 
         return new PagedResponseDTO<>(
@@ -189,7 +203,44 @@ public class VideoServiceImpl implements IVideoService {
                 .body(body);
     }
 
-    private VideoResponseDTO convertToDTO(VideoEntity videoEntity) {
+    @Override
+    public VideoReactionSummaryDTO getVideoReactionSummary(Long videoId, String requesterEmail) {
+        VideoEntity video = getAccessibleVideoEntity(videoId, requesterEmail);
+        String myReaction = getMyReaction(videoId, requesterEmail);
+        return buildReactionSummary(video.getId(), myReaction);
+    }
+
+    @Override
+    @Transactional
+    public VideoReactionSummaryDTO setVideoReaction(Long videoId, String requesterEmail, String reactionType) {
+        if (requesterEmail == null || requesterEmail.isBlank()) {
+            throw new AccessDeniedException("Bạn cần đăng nhập để thực hiện thao tác này.");
+        }
+
+        VideoEntity video = getAccessibleVideoEntity(videoId, requesterEmail);
+        UserEntity requester = userRepository.findByEmailAndIsDeletedFalse(requesterEmail)
+                .orElseThrow(() -> new AccessDeniedException("Bạn cần đăng nhập để thực hiện thao tác này."));
+
+        Optional<VideoReactionEntity> existingReactionOptional = videoReactionRepository
+                .findByUser_IdAndVideo_Id(requester.getId(), videoId);
+
+        String normalizedReactionType = normalizeReactionType(reactionType);
+
+        if (normalizedReactionType == null) {
+            existingReactionOptional.ifPresent(videoReactionRepository::delete);
+            return buildReactionSummary(video.getId(), null);
+        }
+
+        VideoReactionEntity reactionEntity = existingReactionOptional.orElseGet(VideoReactionEntity::new);
+        reactionEntity.setUser(requester);
+        reactionEntity.setVideo(video);
+        reactionEntity.setType(normalizedReactionType);
+        videoReactionRepository.save(reactionEntity);
+
+        return buildReactionSummary(video.getId(), normalizedReactionType);
+    }
+
+    private VideoResponseDTO convertToDTO(VideoEntity videoEntity, String requesterEmail) {
         VideoResponseDTO videoResponseDTO = new VideoResponseDTO();
         videoResponseDTO.setId(videoEntity.getId());
         videoResponseDTO.setTitle(videoEntity.getTitle());
@@ -202,7 +253,106 @@ public class VideoServiceImpl implements IVideoService {
             videoResponseDTO.setCategoryName(videoEntity.getCategory().getName());
             videoResponseDTO.setCategoryId(videoEntity.getCategory().getId());
         }
+
+        UserEntity uploader = videoEntity.getUser();
+        if (uploader != null) {
+            videoResponseDTO.setChannelId(uploader.getId());
+            videoResponseDTO.setUploaderId(uploader.getId());
+            String fallbackName = uploader.getEmail();
+            UserProfileEntity uploaderProfile = userProfileRepository.findByUser_Id(uploader.getId())
+                    .orElse(null);
+
+            if (uploaderProfile != null && uploaderProfile.getFullName() != null
+                    && !uploaderProfile.getFullName().trim().isEmpty()) {
+                videoResponseDTO.setUploaderName(uploaderProfile.getFullName().trim());
+            } else {
+                videoResponseDTO.setUploaderName(fallbackName);
+            }
+
+            if (uploaderProfile != null) {
+                videoResponseDTO.setUploaderAvatarUrl(uploaderProfile.getAvatarUrl());
+            }
+
+            videoResponseDTO.setSubscriberCount(subscriptionRepository.countByChannelOwner_Id(uploader.getId()));
+
+            if (requesterEmail != null && !requesterEmail.isBlank()) {
+                userRepository.findByEmailAndIsDeletedFalse(requesterEmail)
+                        .ifPresent(requester -> {
+                            if (!requester.getId().equals(uploader.getId())) {
+                                videoResponseDTO.setSubscribed(subscriptionRepository.existsByFollower_IdAndChannelOwner_Id(
+                                        requester.getId(),
+                                        uploader.getId()));
+                            }
+                        });
+            }
+        }
+
+        videoResponseDTO.setLikeCount(videoReactionRepository.countByVideo_IdAndTypeIgnoreCase(videoEntity.getId(), "like"));
+        videoResponseDTO
+                .setDislikeCount(videoReactionRepository.countByVideo_IdAndTypeIgnoreCase(videoEntity.getId(), "dislike"));
+
         return videoResponseDTO;
+    }
+
+    private VideoReactionSummaryDTO buildReactionSummary(Long videoId, String myReaction) {
+        long likeCount = videoReactionRepository.countByVideo_IdAndTypeIgnoreCase(videoId, "like");
+        long dislikeCount = videoReactionRepository.countByVideo_IdAndTypeIgnoreCase(videoId, "dislike");
+        return new VideoReactionSummaryDTO(videoId, likeCount, dislikeCount, myReaction);
+    }
+
+    private String getMyReaction(Long videoId, String requesterEmail) {
+        if (requesterEmail == null || requesterEmail.isBlank()) {
+            return null;
+        }
+
+        UserEntity requester = userRepository.findByEmailAndIsDeletedFalse(requesterEmail)
+                .orElse(null);
+        if (requester == null) {
+            return null;
+        }
+
+        return videoReactionRepository.findByUser_IdAndVideo_Id(requester.getId(), videoId)
+                .map(VideoReactionEntity::getType)
+                .orElse(null);
+    }
+
+    private String normalizeReactionType(String reactionType) {
+        if (reactionType == null) {
+            return null;
+        }
+
+        String normalizedType = reactionType.trim().toLowerCase(Locale.ROOT);
+        if (normalizedType.isEmpty()) {
+            return null;
+        }
+
+        if (!"like".equals(normalizedType) && !"dislike".equals(normalizedType)) {
+            throw new IllegalArgumentException("Loại reaction không hợp lệ. Chỉ chấp nhận like, dislike hoặc null.");
+        }
+        return normalizedType;
+    }
+
+    private VideoEntity getAccessibleVideoEntity(Long videoId, String requesterEmail) {
+        VideoEntity videoEntity = videoRepository.findByIdAndIsDeletedFalse(videoId);
+        if (videoEntity == null) {
+            throw new ResourceNotFoundException("Video không tồn tại hoặc đã bị xóa.");
+        }
+
+        String status = videoEntity.getStatus() == null ? "public" : videoEntity.getStatus().trim().toLowerCase();
+        if (!"public".equals(status)) {
+            if (requesterEmail == null || requesterEmail.isBlank()) {
+                throw new AccessDeniedException("Bạn không có quyền xem video này.");
+            }
+
+            UserEntity requester = userRepository.findByEmailAndIsDeletedFalse(requesterEmail)
+                    .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền xem video này."));
+
+            if (!requester.getId().equals(videoEntity.getUser().getId())) {
+                throw new AccessDeniedException("Bạn không có quyền xem video này.");
+            }
+        }
+
+        return videoEntity;
     }
 
     private String extractS3Key(String videoUrl) {

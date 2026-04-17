@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class VideoResponseDTO {
     private long id;
+    private Long channelId;
+    private Long uploaderId;
     private String title;
     private String description;
     private String thumbnailUrl;
@@ -17,4 +19,11 @@ public class VideoResponseDTO {
     private long viewCount;
     private String categoryName;
     private Long categoryId;
+    private String uploaderName;
+    private String uploaderAvatarUrl;
+    private boolean isSubscribed;
+    private long subscriberCount;
+    private long likeCount;
+    private long dislikeCount;
+    private long commentCount;
 }

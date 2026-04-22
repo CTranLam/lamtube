@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-comments-created-at
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: comments
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE comments
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;
+
+              UPDATE comments
+              SET created_at = NOW()
+              WHERE created_at IS NULL;
+
+              ALTER TABLE comments
+                ALTER COLUMN created_at SET NOT NULL,
+                ALTER COLUMN created_at SET DEFAULT NOW();

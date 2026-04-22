@@ -9,4 +9,8 @@ public class UserInfoResponseDTO {
     private String fullname;
     private String bio;
     private String avatarUrl;
+    private String channelName;
+    private String channelHandle;
+    private Long subscriberCount;
+    private Boolean isSubscribed;
 }

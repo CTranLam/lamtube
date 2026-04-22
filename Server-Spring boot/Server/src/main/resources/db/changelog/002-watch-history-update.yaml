@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-watch-history-update
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: watch_history
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE watch_history
+                ADD COLUMN IF NOT EXISTS watched_at TIMESTAMP;
+
+              UPDATE watch_history
+              SET watched_at = NOW()
+              WHERE watched_at IS NULL;
+
+              DELETE FROM watch_history
+              WHERE user_id IS NULL OR video_id IS NULL;
+
+              ALTER TABLE watch_history
+                ALTER COLUMN user_id SET NOT NULL,
+                ALTER COLUMN video_id SET NOT NULL,
+                ALTER COLUMN watched_at SET NOT NULL;
+
+              ALTER TABLE watch_history
+                DROP COLUMN IF EXISTS last_position;

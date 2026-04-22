@@ -34,7 +34,7 @@ export default function UserManagement() {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: "#f4f4f5" }}>
         Quản lý tài khoản
       </Typography>
 
@@ -48,7 +48,7 @@ export default function UserManagement() {
         {loading && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <CircularProgress size={20} />
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: "#d4d4d8" }}>
               Đang tải danh sách tài khoản...
             </Typography>
           </Box>
@@ -100,7 +100,7 @@ export default function UserManagement() {
               size="small"
               sx={{
                 "& .MuiPaginationItem-root": {
-                  color: "#0f172a",
+                  color: "#f4f4f5",
                 },
               }}
             />

@@ -4,10 +4,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,6 +23,7 @@ import LamTube.Server.dto.UserLoginDTO;
 import LamTube.Server.dto.UserRegisterDTO;
 import LamTube.Server.dto.UserRegisterResponseDTO;
 import LamTube.Server.dto.UserResponseDTO;
+import LamTube.Server.dto.auth.AuthLoginResultDTO;
 import LamTube.Server.dto.base.ResponseDTO;
 import LamTube.Server.service.ICategoryService;
 import LamTube.Server.service.IUserService;
@@ -29,6 +34,21 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class GuestController {
+
+    @Value("${app.auth.cookie.refresh-token-name}")
+    private String refreshCookieName;
+
+    @Value("${app.auth.cookie.refresh-token-max-age-seconds}")
+    private long refreshCookieMaxAgeSeconds;
+
+    @Value("${app.auth.cookie.secure}")
+    private boolean refreshCookieSecure;
+
+    @Value("${app.auth.cookie.same-site}")
+    private String refreshCookieSameSite;
+
+    @Value("${app.auth.cookie.path}")
+    private String refreshCookiePath;
 
     private final IUserService userService;
     private final ICategoryService categoryService;
@@ -79,25 +99,59 @@ public class GuestController {
             UserLoginDTO loginDTO = new UserLoginDTO();
             loginDTO.setEmail(userDTO.getEmail());
             loginDTO.setPassword(userDTO.getPassword());
-            String token = userService.login(loginDTO);
-            if (token == null || token.isEmpty()) {
+            AuthLoginResultDTO loginResult = userService.login(loginDTO);
+            if (loginResult == null || loginResult.getAccessToken() == null || loginResult.getAccessToken().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ResponseDTO<>("Sai mật khẩu", null));
             }
             Map<String, Object> response = new HashMap<>();
-            response.put("token", token);
+            response.put("token", loginResult.getAccessToken());
             response.put("email", userResponseDTO.getEmail());
             response.put("id", userResponseDTO.getUserId());
             response.put("role", userResponseDTO.getRole());
 
-            return ResponseEntity.ok(
-                    new ResponseDTO<>("Đăng nhập thành công", response)
-            );
+            ResponseCookie refreshCookie = buildRefreshCookie(loginResult.getRefreshToken(), refreshCookieMaxAgeSeconds);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(new ResponseDTO<>("Đăng nhập thành công", response));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ResponseDTO<>(e.getMessage(), null));
         }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ResponseDTO<Map<String, Object>>> refreshAccessToken(
+            @CookieValue(name = "${app.auth.cookie.refresh-token-name}", required = false) String refreshToken) {
+        try {
+            AuthLoginResultDTO refreshed = userService.refreshAccessToken(refreshToken);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", refreshed.getAccessToken());
+
+            ResponseCookie refreshCookie = buildRefreshCookie(refreshed.getRefreshToken(), refreshCookieMaxAgeSeconds);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(new ResponseDTO<>("Làm mới token thành công", response));
+        } catch (Exception e) {
+            ResponseCookie expiredCookie = buildRefreshCookie("", 0);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                    .body(new ResponseDTO<>(e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ResponseDTO<Object>> logout(
+            @CookieValue(name = "${app.auth.cookie.refresh-token-name}", required = false) String refreshToken) {
+        userService.logout(refreshToken);
+        ResponseCookie expiredCookie = buildRefreshCookie("", 0);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                .body(new ResponseDTO<>("Đăng xuất thành công", null));
     }
 
     @GetMapping("/categories")
@@ -112,5 +166,15 @@ public class GuestController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ResponseDTO<>(e.getMessage(), null));
         }
+    }
+
+    private ResponseCookie buildRefreshCookie(String value, long maxAgeSeconds) {
+        return ResponseCookie.from(refreshCookieName, value)
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .sameSite(refreshCookieSameSite)
+                .path(refreshCookiePath)
+                .maxAge(maxAgeSeconds)
+                .build();
     }
 }

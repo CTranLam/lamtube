@@ -28,23 +28,23 @@ export function UserTable({ users, onView, onEdit, onDelete }: UserTableProps) {
       component={Paper}
       sx={{
         borderRadius: 2,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
         overflow: "hidden",
         border: "1px solid",
-        borderColor: "divider",
-        bgcolor: "common.white",
-        color: "#000",
+        borderColor: "rgba(255,255,255,0.12)",
+        bgcolor: "#181818",
+        color: "#f4f4f5",
       }}
     >
       <Table
         size="small"
         sx={{
-          "& td, & th": { color: "#000" },
-          bgcolor: "common.white",
+          "& td, & th": { color: "#f4f4f5", borderColor: "rgba(255,255,255,0.08)" },
+          bgcolor: "#181818",
         }}
       >
         <TableHead>
-          <TableRow sx={{ bgcolor: "common.white" }}>
+          <TableRow sx={{ bgcolor: "rgba(255,255,255,0.02)" }}>
             <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Vai trò</TableCell>
@@ -59,8 +59,8 @@ export function UserTable({ users, onView, onEdit, onDelete }: UserTableProps) {
               key={user.userId}
               hover
               sx={{
-                bgcolor: "common.white",
-                "&:hover": { bgcolor: "grey.50" },
+                bgcolor: "#181818",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.03)" },
                 "&:last-child td, &:last-child th": { border: 0 },
               }}
             >

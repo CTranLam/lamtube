@@ -1,3 +1,4 @@
+import { httpFetch } from "./http";
 import type {
   ApiResponse,
   RegisterRequest,
@@ -11,7 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export async function registerUser(
   payload: RegisterRequest,
 ): Promise<ApiResponse<UserRegisterResponseDTO>> {
-  const response = await fetch(`${API_BASE_URL}/register`, {
+  const response = await httpFetch(`${API_BASE_URL}/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -31,7 +32,7 @@ export async function registerUser(
 export async function loginUser(
   payload: LoginRequest,
 ): Promise<ApiResponse<LoginResponseData>> {
-  const response = await fetch(`${API_BASE_URL}/login`, {
+  const response = await httpFetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

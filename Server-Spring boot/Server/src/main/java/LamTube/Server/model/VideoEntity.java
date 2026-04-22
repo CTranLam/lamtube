@@ -39,7 +39,7 @@ public class VideoEntity{
     private String status = "public";
 
     @Column(name = "view_count")
-    private Integer viewCount = 0;
+    private Long viewCount = 0L;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)

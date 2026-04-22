@@ -22,24 +22,42 @@ export const CategoryTable = ({
   onDelete,
 }: CategoryTableProps) => {
   return (
-    <Table size="small">
+    <Table
+      size="small"
+      sx={{
+        bgcolor: "#181818",
+        borderRadius: 2,
+        overflow: "hidden",
+        border: "1px solid rgba(255,255,255,0.12)",
+        "& td, & th": {
+          color: "#f4f4f5",
+          borderColor: "rgba(255,255,255,0.08)",
+        },
+      }}
+    >
       <TableHead>
-        <TableRow>
-          <TableCell sx={{ color: "#0f172a", fontWeight: 600 }}>ID</TableCell>
-          <TableCell sx={{ color: "#0f172a", fontWeight: 600 }}>
+        <TableRow sx={{ bgcolor: "rgba(255,255,255,0.02)" }}>
+          <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+          <TableCell sx={{ fontWeight: 600 }}>
             Tên danh mục
           </TableCell>
-          <TableCell sx={{ color: "#0f172a", fontWeight: 600 }} align="right">
+          <TableCell sx={{ fontWeight: 600 }} align="right">
             Thao tác
           </TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
         {categories.map((c) => (
-          <TableRow key={c.id} hover>
-            <TableCell sx={{ color: "#0f172a" }}>{c.id}</TableCell>
-            <TableCell sx={{ color: "#0f172a" }}>{c.name}</TableCell>
-            <TableCell sx={{ color: "#0f172a" }} align="right">
+          <TableRow
+            key={c.id}
+            hover
+            sx={{
+              "&:hover": { bgcolor: "rgba(255,255,255,0.03)" },
+            }}
+          >
+            <TableCell>{c.id}</TableCell>
+            <TableCell>{c.name}</TableCell>
+            <TableCell align="right">
               <IconButton
                 size="small"
                 color="primary"

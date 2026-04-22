@@ -3,7 +3,7 @@ package LamTube.Server.service;
 import org.springframework.web.multipart.MultipartFile;
 
 import LamTube.Server.dto.VideoRequestDTO;
-import LamTube.Server.dto.VideoResponseDTO;
+import LamTube.Server.dto.video.VideoResponseDTO;
 
 public interface IUploadService {
     String uploadImage(MultipartFile file);

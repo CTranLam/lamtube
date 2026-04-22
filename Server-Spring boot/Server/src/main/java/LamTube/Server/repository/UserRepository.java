@@ -16,6 +16,7 @@ import LamTube.Server.model.UserEntity;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     Optional<UserEntity> findByEmailAndIsDeletedFalse(String email);
+    Optional<UserEntity> findByIdAndIsDeletedFalse(Long id);
     List<UserEntity> findAllByIsDeletedFalse();
 
     Page<UserEntity> findAllByIsDeletedFalse(Pageable pageable);

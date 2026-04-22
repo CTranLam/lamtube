@@ -1,8 +1,10 @@
+import { httpFetch } from "./http";
 import type { ApiResponse } from "../types/auth";
 import type {
   MyVideo,
   ChannelStats,
   UserProfileDetail,
+  MyVideoUpdatePayload,
 } from "../types/channel";
 import type { UserInfoResponse } from "../types/auth";
 
@@ -42,7 +44,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getMyVideos(): Promise<MyVideo[]> {
-  const response = await fetch(`${API_BASE_URL}/user/channel/videos`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/channel/videos`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -50,8 +52,36 @@ export async function getMyVideos(): Promise<MyVideo[]> {
   return handleResponse<MyVideo[]>(response);
 }
 
+export async function updateMyVideo(
+  videoId: number,
+  payload: MyVideoUpdatePayload,
+): Promise<MyVideo> {
+  const response = await httpFetch(
+    `${API_BASE_URL}/user/channels/videos/${videoId}`,
+    {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return handleResponse<MyVideo>(response);
+}
+
+export async function deleteMyVideo(videoId: number): Promise<void> {
+  const response = await httpFetch(
+    `${API_BASE_URL}/user/channels/videos/${videoId}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  await handleResponse<unknown>(response);
+}
+
 export async function getChannelStats(): Promise<ChannelStats> {
-  const response = await fetch(`${API_BASE_URL}/user/channel/stats`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/channels/stats`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -60,7 +90,7 @@ export async function getChannelStats(): Promise<ChannelStats> {
 }
 
 export async function getMyProfile(): Promise<UserProfileDetail> {
-  const response = await fetch(`${API_BASE_URL}/user/channel/profile`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/channel/profile`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -84,7 +114,7 @@ export async function updateMyProfile(update: {
   bio?: string;
   avatarUrl?: string;
 }): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/user/channel/profile`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/channel/profile`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify(update),
@@ -103,7 +133,7 @@ export async function uploadAvatar(file: File): Promise<string> {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}/user/upload-avatar`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/upload-avatar`, {
     method: "POST",
     headers,
     body: formData,

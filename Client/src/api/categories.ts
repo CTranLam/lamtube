@@ -1,3 +1,4 @@
+import { httpFetch } from "./http";
 import type { ApiResponse, PagedResponse } from "../types/auth";
 import type { HomeCategory, HomeCategoryListResult } from "../types/category";
 
@@ -100,7 +101,7 @@ export async function getCategories(
     query.append("q", params.q);
   }
 
-  const response = await fetch(
+  const response = await httpFetch(
     `${API_BASE_URL}/categories${query.toString() ? `?${query.toString()}` : ""}`,
     {
       method: "GET",

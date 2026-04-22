@@ -11,9 +11,15 @@ import Settings from "./pages/Settings.tsx";
 import Help from "./pages/Help.tsx";
 import Feedback from "./pages/Feedback.tsx";
 import Subscriptions from "./pages/Subscriptions.tsx";
+import History from "./pages/History.tsx";
+import Liked from "./pages/Liked.tsx";
+import WatchLater from "./pages/WatchLater.tsx";
+import Playlists from "./pages/Playlists.tsx";
+import PlaylistDetail from "./pages/PlaylistDetail.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import UserManagement from "./pages/admin/UserManagement.tsx";
 import CategoryManagement from "./pages/admin/CategoryManagement.tsx";
+import VideoManagement from "./pages/admin/VideoManagement.tsx";
 
 function App() {
   return (
@@ -24,6 +30,7 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="categories" element={<CategoryManagement />} />
+        <Route path="videos" element={<VideoManagement />} />
       </Route>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Home />} />
@@ -33,6 +40,11 @@ function App() {
         <Route path="help" element={<Help />} />
         <Route path="feedback" element={<Feedback />} />
         <Route path="subscriptions" element={<Subscriptions />} />
+        <Route path="playlists" element={<Playlists />} />
+        <Route path="playlists/:playlistId" element={<PlaylistDetail />} />
+        <Route path="history" element={<History />} />
+        <Route path="watch-later" element={<WatchLater />} />
+        <Route path="liked" element={<Liked />} />
         <Route path="watch/:videoId" element={<Watch />} />
       </Route>
     </Routes>

@@ -8,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import LamTube.Server.configuration.RustFsProperties;
 import LamTube.Server.dto.VideoRequestDTO;
-import LamTube.Server.dto.VideoResponseDTO;
+import LamTube.Server.dto.video.VideoResponseDTO;
 import LamTube.Server.model.CategoryEntity;
 import LamTube.Server.model.UserEntity;
 import LamTube.Server.model.VideoEntity;
@@ -105,7 +105,7 @@ public class UploadServiceImpl implements IUploadService {
         videoEntity.setStatus(status);
         videoEntity.setVideoUrl(videoUrl);
         videoEntity.setThumbnailUrl(thumbnailUrl);
-        videoEntity.setViewCount(0);
+        videoEntity.setViewCount(0L);
         videoEntity.setUser(user);
         videoEntity.setCategory(category);
 
@@ -118,7 +118,7 @@ public class UploadServiceImpl implements IUploadService {
         responseDTO.setVideoUrl(savedVideo.getVideoUrl());
         responseDTO.setThumbnailUrl(savedVideo.getThumbnailUrl());
         responseDTO.setStatus(savedVideo.getStatus());
-        responseDTO.setViewCount(savedVideo.getViewCount() != null ? savedVideo.getViewCount() : 0);
+        responseDTO.setViewCount(savedVideo.getViewCount() != null ? savedVideo.getViewCount() : 0L);
         responseDTO.setCategoryName(savedVideo.getCategory() != null ? savedVideo.getCategory().getName() : null);
         return responseDTO;
     }

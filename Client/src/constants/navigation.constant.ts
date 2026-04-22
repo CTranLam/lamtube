@@ -7,7 +7,6 @@ import {
   PlaylistPlay as PlaylistIcon,
   WatchLater as WatchLaterIcon,
   ThumbUpAlt as ThumbUpAltIcon,
-  CloudDownload as DownloadIcon,
   MusicNote as MusicIcon,
   SportsEsports as GamingIcon,
   Article as NewsIcon,
@@ -45,7 +44,7 @@ export const YOU_NAV: SidebarNavItem[] = [
     id: "your-videos",
     label: "Video của bạn",
     icon: VideoLibraryIcon,
-    path: "/your-videos",
+    path: "/channel",
   },
   {
     id: "watch-later",
@@ -58,12 +57,6 @@ export const YOU_NAV: SidebarNavItem[] = [
     label: "Video đã thích",
     icon: ThumbUpAltIcon,
     path: "/liked",
-  },
-  {
-    id: "downloads",
-    label: "Nội dung tải xuống",
-    icon: DownloadIcon,
-    path: "/downloads",
   },
 ];
 

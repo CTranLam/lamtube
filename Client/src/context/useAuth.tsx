@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { UserInfo } from "../types/auth";
 import { AuthContext } from "./AuthContext";
+import { logoutWithCookie } from "../api/http";
 
 function getInitialUser(): UserInfo | null {
   try {
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = () => {
+    void logoutWithCookie();
     queryClient.removeQueries({ queryKey: ["myProfile"] });
     localStorage.removeItem("access_token");
     localStorage.removeItem("user_info");

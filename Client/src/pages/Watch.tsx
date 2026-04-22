@@ -1,8 +1,10 @@
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useParams } from "react-router-dom";
 import { useVideo } from "../hooks/useVideo";
+import { useRelatedVideos } from "../hooks/useRelatedVideos";
 import WatchSkeleton from "../components/watch/WatchSkeleton";
 import WatchContent from "../components/watch/WatchContent";
+import WatchRelatedVideoList from "../components/watch/related/WatchRelatedVideoList";
 
 export default function Watch() {
   const { videoId } = useParams<{ videoId: string }>();
@@ -18,6 +20,7 @@ export default function Watch() {
     clearSubscribeError,
     toggleSubscribe,
   } = useVideo(videoId);
+  const relatedQuery = useRelatedVideos(video?.id, 20);
 
   if (isLoading) {
     return <WatchSkeleton />;
@@ -37,14 +40,42 @@ export default function Watch() {
   }
 
   return (
-    <WatchContent
-      video={video}
-      isSubscribed={isSubscribed}
-      subscriberCount={subscriberCount}
-      isSubscribing={isSubscribing}
-      subscribeError={subscribeError}
-      clearSubscribeError={clearSubscribeError}
-      onToggleSubscribe={toggleSubscribe}
-    />
+    <Box
+      sx={{
+        maxWidth: 1700,
+        mx: "auto",
+        px: { xs: 0, md: 2 },
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 400px" },
+        gap: { xs: 2, lg: 1.75 },
+        alignItems: "start",
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <WatchContent
+          video={video}
+          isSubscribed={isSubscribed}
+          subscriberCount={subscriberCount}
+          isSubscribing={isSubscribing}
+          subscribeError={subscribeError}
+          clearSubscribeError={clearSubscribeError}
+          onToggleSubscribe={toggleSubscribe}
+        />
+      </Box>
+      <Box sx={{ px: { xs: 2, lg: 0 }, pb: 3 }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 1.25 }}>
+          Video liên quan
+        </Typography>
+        <WatchRelatedVideoList
+          isLoading={relatedQuery.isLoading}
+          isError={relatedQuery.isError}
+          error={relatedQuery.error as Error | null}
+          videos={relatedQuery.data ?? []}
+          onRetry={() => {
+            void relatedQuery.refetch();
+          }}
+        />
+      </Box>
+    </Box>
   );
 }

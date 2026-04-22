@@ -17,13 +17,15 @@ import LamTube.Server.dto.UserInfoAdminUpdateDTO;
 import LamTube.Server.dto.UserInforAdminDTO;
 import LamTube.Server.dto.UserRequestCreateDTO;
 import LamTube.Server.dto.UserResponseDTO;
+import LamTube.Server.dto.VideoRequestDTO;
 import LamTube.Server.dto.CategoryCreateDTO;
 import LamTube.Server.dto.CategoryResponseDTO;
 import LamTube.Server.dto.CategoryUpdateDTO;
+import LamTube.Server.dto.video.VideoResponseDTO;
 import LamTube.Server.dto.base.ResponseDTO;
 import LamTube.Server.dto.base.PagedResponseDTO;
+import LamTube.Server.service.IAdminService;
 import LamTube.Server.service.IRoleService;
-import LamTube.Server.service.IUserService;
 import LamTube.Server.service.ICategoryService;
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminController {
 
-    private final IUserService userService;
+    private final IAdminService adminService;
     private final IRoleService roleService;
     private final ICategoryService categoryService;
 
@@ -43,13 +45,13 @@ public class AdminController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "10") int size
     ) {
-        PagedResponseDTO<UserResponseDTO> users = userService.getAllUsers(email, role, page, size);
+        PagedResponseDTO<UserResponseDTO> users = adminService.getAllUsers(email, role, page, size);
         return ResponseEntity.ok(new ResponseDTO<>("Danh sách tài khoản", users));
     }
 
     @PostMapping("/user")
     public ResponseEntity<ResponseDTO<UserResponseDTO>> createUser(@RequestBody UserRequestCreateDTO createDTO) {
-        UserResponseDTO user = userService.createUser(createDTO);
+        UserResponseDTO user = adminService.createUser(createDTO);
         return ResponseEntity.ok(new ResponseDTO<>("Tạo tài khoản thành công", user));
     }
 
@@ -61,19 +63,19 @@ public class AdminController {
 
         @GetMapping("/user/{userId}")
     public ResponseEntity<ResponseDTO<UserInforAdminDTO>> getUserById(@PathVariable Long userId) {
-        UserInforAdminDTO userInfo = userService.getUserById(userId);
+        UserInforAdminDTO userInfo = adminService.getUserById(userId);
         return ResponseEntity.ok(new ResponseDTO<>("Thông tin tài khoản", userInfo));
     }
 
     @PutMapping("/user/{userId}")
     public ResponseEntity<ResponseDTO<String>> updateUser(@PathVariable Long userId, @RequestBody UserInfoAdminUpdateDTO updateDTO) {
-        userService.updateUserInfo(userId, updateDTO);
+        adminService.updateUserInfo(userId, updateDTO);
         return ResponseEntity.ok(new ResponseDTO<>("Cập nhật tài khoản thành công", null));
      }
 
     @DeleteMapping("/user/{userId}")
     public ResponseEntity<ResponseDTO<String>> deleteUser(@PathVariable Long userId) {
-        userService.deleteUser(userId);
+        adminService.deleteUser(userId);
         return ResponseEntity.ok(new ResponseDTO<>("Xóa tài khoản thành công", null));  
     }
 
@@ -108,6 +110,41 @@ public class AdminController {
     public ResponseEntity<ResponseDTO<String>> deleteCategory(@PathVariable Long categoryId) {
         categoryService.deleteCategory(categoryId);
         return ResponseEntity.ok(new ResponseDTO<>("Xóa danh mục thành công", null));
+    }
+
+    @GetMapping("/videos")
+    public ResponseEntity<ResponseDTO<PagedResponseDTO<VideoResponseDTO>>> getAllAdminVideos(
+        @RequestParam(required = false) String title,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) String uploader,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        PagedResponseDTO<VideoResponseDTO> videos = adminService.getAllAdminVideos(
+            title,
+            status,
+            categoryId,
+            uploader,
+            page,
+            size
+        );
+        return ResponseEntity.ok(new ResponseDTO<>("Danh sách video", videos));
+    }
+
+    @PutMapping("/videos/{videoId}/status")
+    public ResponseEntity<ResponseDTO<VideoResponseDTO>> updateVideoStatus(
+        @PathVariable Long videoId,
+        @RequestBody VideoRequestDTO request
+    ) {
+        VideoResponseDTO updated = adminService.updateVideoStatus(videoId, request.getStatus());
+        return ResponseEntity.ok(new ResponseDTO<>("Cập nhật trạng thái video thành công", updated));
+    }
+
+    @DeleteMapping("/videos/{videoId}")
+    public ResponseEntity<ResponseDTO<String>> deleteVideo(@PathVariable Long videoId) {
+        adminService.deleteVideo(videoId);
+        return ResponseEntity.ok(new ResponseDTO<>("Xóa video thành công", null));
     }
 
 }

@@ -76,3 +76,21 @@ export interface HomeVideoListResult {
   totalElements: number;
   totalPages: number;
 }
+
+export interface LikedVideo {
+  id: number;
+  title: string;
+  thumbnailUrl: string;
+  uploaderName: string;
+  viewCount: number;
+}
+
+export interface RelatedVideo {
+  id: number;
+  title: string;
+  thumbnailUrl: string;
+  uploaderName: string;
+  viewCount: number;
+  createdAt: string;
+  duration?: string;
+}

@@ -8,8 +8,8 @@ export default function AdminLayout() {
       sx={{
         display: "flex",
         minHeight: "100vh",
-        bgcolor: "#020617",
-        color: "#0f172a",
+        bgcolor: "#0f0f0f",
+        color: "#f4f4f5",
       }}
     >
       <AdminSidebar />
@@ -19,17 +19,17 @@ export default function AdminLayout() {
           flex: 1,
           p: 4,
           ml: { xs: 0, sm: 30 },
-          bgcolor: "#f8fafc",
+          bgcolor: "#0f0f0f",
         }}
       >
         <Box
           sx={{
             mb: 3,
             pb: 1.5,
-            borderBottom: "1px solid #e2e8f0",
+            borderBottom: "1px solid rgba(255,255,255,0.12)",
           }}
         >
-          <Typography variant="h5" sx={{ fontWeight: 600, color: "#0f172a" }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: "#fafafa" }}>
             Admin Dashboard
           </Typography>
         </Box>

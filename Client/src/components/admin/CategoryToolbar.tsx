@@ -37,25 +37,29 @@ export const CategoryToolbar = ({
             startAdornment: (
               <Box
                 component="span"
-                sx={{ color: "white", mr: 1, display: "flex" }}
+                sx={{ color: "#a1a1aa", mr: 1, display: "flex" }}
               >
                 <SearchIcon />
               </Box>
             ),
           }}
           sx={{
-            bgcolor: "primary.main",
+            bgcolor: "rgba(255,255,255,0.04)",
             borderRadius: 1,
             minWidth: 250,
             "& .MuiInputBase-input": {
-              color: "white",
+              color: "#f4f4f5",
               "&::placeholder": {
-                color: "rgba(255, 255, 255, 0.7)",
+                color: "rgba(255,255,255,0.6)",
                 opacity: 1,
               },
             },
-            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-            "&:hover": { bgcolor: "primary.dark" },
+            "& .MuiOutlinedInput-notchedOutline": {
+              border: "1px solid rgba(255,255,255,0.16)",
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "rgba(255,255,255,0.3)",
+            },
           }}
         />
       </Stack>

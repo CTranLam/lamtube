@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-video-view-count-bigint
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: videos
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE videos
+                ALTER COLUMN view_count TYPE BIGINT,
+                ALTER COLUMN view_count SET DEFAULT 0;

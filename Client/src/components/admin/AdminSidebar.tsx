@@ -15,6 +15,7 @@ const adminNav = [
   { label: "Dashboard", path: "/admin" },
   { label: "Quản lý tài khoản", path: "/admin/users" },
   { label: "Quản lý danh mục", path: "/admin/categories" },
+  { label: "Quản lý video", path: "/admin/videos" },
 ];
 
 export function AdminSidebar() {
@@ -31,20 +32,20 @@ export function AdminSidebar() {
       sx={{
         width: 240,
         flexShrink: 0,
-        bgcolor: "#111827",
-        borderRight: "1px solid #020617",
+        bgcolor: "#181818",
+        borderRight: "1px solid rgba(255,255,255,0.1)",
         position: "fixed",
         top: 0,
         left: 0,
         bottom: 0,
-        boxShadow: "4px 0 30px rgba(15,23,42,0.6)",
+        boxShadow: "4px 0 24px rgba(0,0,0,0.45)",
       }}
     >
       <Toolbar
         sx={{
           px: 2,
-          borderBottom: "1px solid rgba(148,163,184,0.3)",
-          color: "#e5e7eb",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          color: "#f4f4f5",
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -64,10 +65,10 @@ export function AdminSidebar() {
             sx={{
               px: 2,
               py: 1,
-              color: "#fecaca",
+              color: "#fca5a5",
               "&:hover": {
-                bgcolor: "rgba(239,68,68,0.18)",
-                color: "#fee2e2",
+                bgcolor: "rgba(239,68,68,0.16)",
+                color: "#fecaca",
               },
             }}
           >

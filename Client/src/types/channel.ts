@@ -1,8 +1,13 @@
 export interface ChannelStats {
-  totalViews: number;
-  totalSubscribers: number;
-  totalVideos: number;
-  last30DaysViews: number;
+  totalViews?: number;
+  totalSubscribers?: number;
+  totalVideos?: number;
+  totalLikes?: number;
+  totalDislikes?: number;
+  last30DaysViews?: number;
+  monthlyViews?: number;
+  monthlyLikes?: number;
+  monthlyDislikes?: number;
 }
 
 export interface UserProfileDetail {
@@ -30,4 +35,11 @@ export interface MyVideo {
   viewCount: number;
   categoryName: string | null;
   categoryId: number | null;
+}
+
+export interface MyVideoUpdatePayload {
+  title: string;
+  description: string;
+  categoryId: number | null;
+  status: "public" | "private";
 }

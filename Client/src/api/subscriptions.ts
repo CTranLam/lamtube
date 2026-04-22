@@ -1,3 +1,4 @@
+import { httpFetch } from "./http";
 import type { ApiResponse, PagedResponse } from "../types/auth";
 import type {
   SubscribedChannelSummary,
@@ -174,7 +175,7 @@ export async function getSubscribedVideos(params?: {
   query.set("page", String(params?.page ?? 0));
   query.set("size", String(params?.size ?? 12));
 
-  const response = await fetch(
+  const response = await httpFetch(
     `${API_BASE_URL}/user/subscriptions/videos?${query.toString()}`,
     {
       method: "GET",
@@ -195,7 +196,7 @@ export async function getSubscribedVideos(params?: {
 export async function getSubscribedChannels(): Promise<
   SubscribedChannelSummary[]
 > {
-  const response = await fetch(`${API_BASE_URL}/user/subscriptions/channels`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/subscriptions/channels`, {
     method: "GET",
     headers: getAuthHeaders(),
   });

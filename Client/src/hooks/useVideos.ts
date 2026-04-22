@@ -7,7 +7,7 @@ type UseVideosParams = {
   size?: number;
 };
 
-export function useVideos({ categoryId, title, size = 16 }: UseVideosParams) {
+export function useVideos({ categoryId, title, size = 12 }: UseVideosParams) {
   return useInfiniteQuery({
     queryKey: ["videos", "home", categoryId ?? "all", title ?? "", size],
     initialPageParam: 0,

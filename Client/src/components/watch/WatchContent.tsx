@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import {
   Avatar,
   Box,
@@ -7,18 +7,26 @@ import {
   Divider,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import {
+  BookmarkBorderOutlined as BookmarkIcon,
   ThumbDownAltOutlined as ThumbDownIcon,
   ThumbUpAltOutlined as ThumbUpIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { getVideoReactionSummary, setVideoReaction } from "../../api/videos";
+import {
+  getVideoReactionSummary,
+  registerVideoView,
+  removeVideoReaction,
+  setVideoReaction,
+} from "../../api/videos";
+import { registerWatchHistory } from "../../api/watchHistory";
 import type { VideoDetail, VideoReactionType } from "../../types/video";
 import { useAuth } from "../../hooks/useAuth";
 import LoginRequiredModal from "../common/LoginRequiredModal";
+import SaveToPlaylistDialog from "./SaveToPlaylistDialog";
+import WatchCommentSection from "./comments/WatchCommentSection";
 
 type WatchContentProps = {
   video: VideoDetail;
@@ -35,27 +43,8 @@ type WatchContentProps = {
 
 type ReactionType = VideoReactionType | null;
 
-type WatchComment = {
-  id: number;
-  authorName: string;
-  avatarUrl?: string;
-  content: string;
-  createdAt: string;
-};
-
 function formatCount(value: number): string {
   return new Intl.NumberFormat("vi-VN").format(value);
-}
-
-function buildDefaultComments(video: VideoDetail): WatchComment[] {
-  return [
-    {
-      id: 1,
-      authorName: "Người xem LamTube",
-      content: `Video "${video.title}" rất ổn, mong có thêm nội dung tương tự.`,
-      createdAt: "Vừa xong",
-    },
-  ];
 }
 
 export default function WatchContent({
@@ -69,8 +58,11 @@ export default function WatchContent({
 }: WatchContentProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [displayViewCount, setDisplayViewCount] = useState(
+    Number(video.viewCount) || 0,
+  );
   const formattedViewCount = `${new Intl.NumberFormat("vi-VN").format(
-    video.viewCount,
+    displayViewCount,
   )} lượt xem`;
   const normalizedStatus =
     video.status?.toLowerCase() === "private" ? "Riêng tư" : "Công khai";
@@ -85,12 +77,17 @@ export default function WatchContent({
   const [isReacting, setIsReacting] = useState(false);
   const [reactionError, setReactionError] = useState<string | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
-  const [comments, setComments] = useState<WatchComment[]>(() =>
-    buildDefaultComments(video),
-  );
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const hasCountedViewRef = useRef(false);
+  const isCountingViewRef = useRef(false);
+  const isReplayAfterEndRef = useRef(false);
 
-  const commentCount = comments.length;
+  useEffect(() => {
+    hasCountedViewRef.current = false;
+    isCountingViewRef.current = false;
+    isReplayAfterEndRef.current = false;
+    setDisplayViewCount(Number(video.viewCount) || 0);
+  }, [video.id]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -134,7 +131,10 @@ export default function WatchContent({
       reaction === nextReaction ? null : nextReaction;
 
     try {
-      const summary = await setVideoReaction(video.id, payload);
+      const summary =
+        payload === null
+          ? await removeVideoReaction(video.id)
+          : await setVideoReaction(video.id, payload);
       setReaction(summary.myReaction);
       setLikeCount(summary.likeCount);
       setDislikeCount(summary.dislikeCount);
@@ -147,21 +147,6 @@ export default function WatchContent({
     }
   };
 
-  const handleSubmitComment = () => {
-    const trimmed = commentInput.trim();
-    if (!trimmed) return;
-
-    const nextComment: WatchComment = {
-      id: Date.now(),
-      authorName: user?.email || "Khách",
-      content: trimmed,
-      createdAt: "Vừa xong",
-    };
-
-    setComments((prev) => [nextComment, ...prev]);
-    setCommentInput("");
-  };
-
   const handleToggleSubscribe = async () => {
     clearSubscribeError();
     const result = await onToggleSubscribe();
@@ -170,8 +155,57 @@ export default function WatchContent({
     }
   };
 
+  const handleOpenSaveDialog = () => {
+    if (!user) {
+      setIsLoginModalOpen(true);
+      return;
+    }
+    setIsSaveDialogOpen(true);
+  };
+
+  const handleVideoTimeUpdate = (event: SyntheticEvent<HTMLVideoElement>) => {
+    if (hasCountedViewRef.current || isCountingViewRef.current) {
+      return;
+    }
+
+    if (event.currentTarget.currentTime < 5) {
+      return;
+    }
+
+    hasCountedViewRef.current = true;
+    isCountingViewRef.current = true;
+
+    void registerVideoView(video.id)
+      .then(() => {
+        setDisplayViewCount((prev) => prev + 1);
+      })
+      .catch(() => {
+        hasCountedViewRef.current = false;
+      })
+      .finally(() => {
+        isCountingViewRef.current = false;
+      });
+      
+    if (user) {
+      void registerWatchHistory(video.id).catch(() => undefined);
+    }
+  };
+
+  const handleVideoEnded = () => {
+    isReplayAfterEndRef.current = true;
+  };
+
+  const handleVideoPlay = (event: SyntheticEvent<HTMLVideoElement>) => {
+    if (!isReplayAfterEndRef.current) return;
+    if (event.currentTarget.currentTime > 0.5) return;
+
+    hasCountedViewRef.current = false;
+    isCountingViewRef.current = false;
+    isReplayAfterEndRef.current = false;
+  };
+
   return (
-    <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 2 }}>
+    <Box sx={{ width: "100%", p: { xs: 2, lg: 1.5 } }}>
       <Box
         sx={{
           position: "relative",
@@ -186,6 +220,9 @@ export default function WatchContent({
           src={video.videoUrl}
           controls
           poster={video.thumbnailUrl}
+          onTimeUpdate={handleVideoTimeUpdate}
+          onEnded={handleVideoEnded}
+          onPlay={handleVideoPlay}
           sx={{
             position: "absolute",
             inset: 0,
@@ -288,6 +325,14 @@ export default function WatchContent({
             >
               Không thích {formatCount(dislikeCount)}
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<BookmarkIcon />}
+              onClick={handleOpenSaveDialog}
+              sx={{ textTransform: "none", borderRadius: 99 }}
+            >
+              Lưu
+            </Button>
           </Stack>
         </Stack>
       </Paper>
@@ -309,72 +354,31 @@ export default function WatchContent({
       ) : null}
 
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mb: 2.5 }} />
-
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-        Bình luận ({formatCount(commentCount)})
-      </Typography>
-
-      <Stack spacing={1.25} sx={{ mb: 2 }}>
-        <TextField
-          fullWidth
-          multiline
-          minRows={3}
-          placeholder="Viết bình luận của bạn..."
-          value={commentInput}
-          onChange={(event) => setCommentInput(event.target.value)}
-        />
-        <Stack direction="row" justifyContent="flex-end">
-          <Button
-            variant="contained"
-            sx={{ textTransform: "none" }}
-            onClick={handleSubmitComment}
-            disabled={!commentInput.trim()}
-          >
-            Gửi bình luận
-          </Button>
-        </Stack>
-      </Stack>
-
-      <Stack spacing={1.5}>
-        {comments.map((comment) => (
-          <Paper
-            key={comment.id}
-            sx={{
-              bgcolor: "#181818",
-              p: 1.5,
-              borderRadius: 2,
-            }}
-          >
-            <Stack direction="row" spacing={1.5}>
-              <Avatar src={comment.avatarUrl || undefined}>
-                {comment.authorName.charAt(0).toUpperCase()}
-              </Avatar>
-              <Box sx={{ minWidth: 0 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography sx={{ fontWeight: 600 }} noWrap>
-                    {comment.authorName}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "#9ca3af" }}>
-                    {comment.createdAt}
-                  </Typography>
-                </Stack>
-                <Typography
-                  variant="body2"
-                  sx={{ color: "#e5e5e5", whiteSpace: "pre-wrap" }}
-                >
-                  {comment.content}
-                </Typography>
-              </Box>
-            </Stack>
-          </Paper>
-        ))}
-      </Stack>
+      <WatchCommentSection
+        key={video.id}
+        videoId={video.id}
+        initialCommentCount={Number(video.commentCount) || 0}
+        isAuthenticated={Boolean(user)}
+        currentUserId={user?.id ?? null}
+        videoOwnerId={video.channelId}
+        onRequireLogin={() => setIsLoginModalOpen(true)}
+      />
       <LoginRequiredModal
         open={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={() => {
           setIsLoginModalOpen(false);
           navigate("/login");
+        }}
+      />
+      <SaveToPlaylistDialog
+        open={isSaveDialogOpen}
+        videoId={video.id}
+        isAuthenticated={Boolean(user)}
+        onClose={() => setIsSaveDialogOpen(false)}
+        onRequireLogin={() => {
+          setIsSaveDialogOpen(false);
+          setIsLoginModalOpen(true);
         }}
       />
     </Box>

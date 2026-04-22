@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-video-reactions-created-at
+      author: codex
+      changes:
+        - addColumn:
+            tableName: video_reactions
+            columns:
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addNotNullConstraint:
+            tableName: video_reactions
+            columnName: created_at
+            columnDataType: TIMESTAMP

@@ -69,6 +69,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         final List<String> bypassPostPaths = Arrays.asList(
                 "/api/register",
                 "/api/login",
+                "/api/refresh",
+                "/api/logout",
                 "/error",
                 "/api/categories"
         );

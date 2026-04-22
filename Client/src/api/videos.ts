@@ -1,5 +1,8 @@
+import { httpFetch } from "./http";
 import type {
   HomeVideoListResult,
+  LikedVideo,
+  RelatedVideo,
   UploadVideoCategory,
   UploadVideoPayload,
   UploadVideoResponse,
@@ -26,6 +29,8 @@ type VideoApiItem = {
   videoUrl?: string;
   status?: string;
   viewCount?: number;
+  uploaderName?: string;
+  channelName?: string;
   categoryName?: string | null;
   categoryId?: number | null;
 };
@@ -62,6 +67,27 @@ type VideoReactionSummaryApiItem = {
 type ChannelSubscribeSummary = {
   isSubscribed: boolean;
   subscriberCount: number;
+};
+
+type LikedVideoApiItem = {
+  id?: number | string;
+  title?: string;
+  thumbnailUrl?: string;
+  uploaderName?: string;
+  viewCount?: number | string | null;
+};
+
+type RelatedVideoApiItem = {
+  id?: number | string;
+  title?: string;
+  thumbnailUrl?: string;
+  uploaderName?: string;
+  authorName?: string;
+  channelName?: string;
+  viewCount?: number | string | null;
+  createdAt?: string | null;
+  publishedAt?: string | null;
+  duration?: string | null;
 };
 
 export class ApiRequestError extends Error {
@@ -178,10 +204,12 @@ function buildVideoStreamUrl(videoId: number | string | undefined): string {
 function toHomeVideoItem(item: VideoApiItem): Video {
   const id = item.id != null ? String(item.id) : "";
   const views = Number(item.viewCount) || 0;
+  const uploaderName =
+    item.uploaderName?.trim() || item.channelName?.trim() || "LamTube";
   return {
     id,
     title: item.title || "Không có tiêu đề",
-    channelName: "LamTube",
+    channelName: uploaderName,
     views: `${new Intl.NumberFormat("vi-VN").format(views)} lượt xem`,
     publishedAt: "Mới đăng",
     duration: "",
@@ -252,13 +280,77 @@ function normalizeHomeVideoList(value: unknown): HomeVideoListResult {
   };
 }
 
+function normalizeLikedVideos(value: unknown): LikedVideo[] {
+  const source = isRecord(value) && Array.isArray(value.items) ? value.items : value;
+  if (!Array.isArray(source)) return [];
+
+  return source.reduce<LikedVideo[]>((acc, current) => {
+    if (!isRecord(current)) return acc;
+    const video = current as LikedVideoApiItem;
+    const id = toNumber(video.id);
+    if (!id) return acc;
+
+    acc.push({
+      id,
+      title: typeof video.title === "string" ? video.title : "Không có tiêu đề",
+      thumbnailUrl:
+        typeof video.thumbnailUrl === "string" ? normalizeMediaUrl(video.thumbnailUrl) : "",
+      uploaderName:
+        typeof video.uploaderName === "string" && video.uploaderName.trim()
+          ? video.uploaderName
+          : "LamTube",
+      viewCount: toNumber(video.viewCount),
+    });
+    return acc;
+  }, []);
+}
+
+function normalizeDateString(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
+function normalizeRelatedVideos(value: unknown): RelatedVideo[] {
+  const source = isRecord(value) && Array.isArray(value.items) ? value.items : value;
+  if (!Array.isArray(source)) return [];
+
+  return source.reduce<RelatedVideo[]>((acc, current) => {
+    if (!isRecord(current)) return acc;
+    const video = current as RelatedVideoApiItem;
+    const id = toNumber(video.id);
+    if (!id) return acc;
+
+    const uploaderName =
+      video.uploaderName?.trim() ||
+      video.authorName?.trim() ||
+      video.channelName?.trim() ||
+      "LamTube";
+
+    acc.push({
+      id,
+      title: typeof video.title === "string" ? video.title : "Không có tiêu đề",
+      thumbnailUrl:
+        typeof video.thumbnailUrl === "string"
+          ? normalizeMediaUrl(video.thumbnailUrl)
+          : "",
+      uploaderName,
+      viewCount: toNumber(video.viewCount),
+      createdAt: normalizeDateString(video.createdAt ?? video.publishedAt),
+      duration: typeof video.duration === "string" ? video.duration : "",
+    });
+    return acc;
+  }, []);
+}
+
 export async function getHomeVideos(
   params?: GetHomeVideosParams,
 ): Promise<HomeVideoListResult> {
   if (API_BASE_URL?.trim()) {
     const query = new URLSearchParams();
     query.set("page", String(params?.page ?? 0));
-    query.set("size", String(params?.size ?? 16));
+    query.set("size", String(params?.size ?? 12));
     if (typeof params?.categoryId === "number") {
       query.set("categoryId", String(params.categoryId));
     }
@@ -266,7 +358,7 @@ export async function getHomeVideos(
       query.set("title", params.title.trim());
     }
 
-    const response = await fetch(`${API_BASE_URL}/videos?${query.toString()}`, {
+    const response = await httpFetch(`${API_BASE_URL}/videos?${query.toString()}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -313,7 +405,7 @@ export async function getVideoById(
   if (!id) return undefined;
 
   if (API_BASE_URL?.trim()) {
-    const response = await fetch(`${API_BASE_URL}/videos/${id}`, {
+    const response = await httpFetch(`${API_BASE_URL}/videos/${id}`, {
       method: "GET",
       headers: getAuthHeaders(),
     });
@@ -334,6 +426,56 @@ export async function getVideoById(
   }
 
   return undefined;
+}
+
+export async function getLikedVideos(): Promise<LikedVideo[]> {
+  const response = await httpFetch(`${API_BASE_URL}/user/liked-videos`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+
+  const body = await parseJsonBody(response);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throwApiError(response, body, "Vui lòng đăng nhập để xem video đã thích.");
+    }
+    throwApiError(response, body, "Không thể tải danh sách video đã thích.");
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeLikedVideos(raw);
+}
+
+export async function getRelatedVideos(
+  videoId: string | number,
+  limit = 20,
+): Promise<RelatedVideo[]> {
+  if (!API_BASE_URL?.trim()) {
+    return [];
+  }
+
+  const query = new URLSearchParams();
+  query.set("limit", String(limit));
+
+  const response = await httpFetch(
+    `${API_BASE_URL}/videos/${videoId}/related?${query.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  const body = await parseJsonBody(response);
+
+  if (!response.ok) {
+    throwApiError(response, body, "Không thể tải danh sách video liên quan.");
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeRelatedVideos(raw);
 }
 
 function normalizeVideoDetail(value: unknown): VideoDetail {
@@ -400,7 +542,7 @@ function normalizeReactionSummary(
 export async function getVideoReactionSummary(
   videoId: string | number,
 ): Promise<VideoReactionSummary> {
-  const response = await fetch(
+  const response = await httpFetch(
     `${API_BASE_URL}/videos/${videoId}/reaction-summary`,
     {
       method: "GET",
@@ -429,7 +571,7 @@ export async function setVideoReaction(
   videoId: string | number,
   reactionType: VideoReactionType | null,
 ): Promise<VideoReactionSummary> {
-  const response = await fetch(`${API_BASE_URL}/videos/${videoId}/reaction`, {
+  const response = await httpFetch(`${API_BASE_URL}/videos/${videoId}/reaction`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ type: reactionType }),
@@ -452,6 +594,45 @@ export async function setVideoReaction(
   return normalizeReactionSummary(raw);
 }
 
+export async function removeVideoReaction(
+  videoId: string | number,
+): Promise<VideoReactionSummary> {
+  const response = await httpFetch(`${API_BASE_URL}/videos/${videoId}/reaction`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+
+  const body = await parseJsonBody(response);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throwApiError(
+        response,
+        body,
+        "Vui lòng đăng nhập để sử dụng chức năng phản hồi.",
+      );
+    }
+    throwApiError(response, body, "Không thể cập nhật phản hồi.");
+  }
+
+  const raw = unwrapApiData(body);
+  return normalizeReactionSummary(raw);
+}
+
+export async function registerVideoView(
+  videoId: string | number,
+): Promise<void> {
+  const response = await httpFetch(`${API_BASE_URL}/videos/${videoId}/view`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+
+  const body = await parseJsonBody(response);
+  if (!response.ok) {
+    throwApiError(response, body, "Không thể cập nhật lượt xem.");
+  }
+}
+
 function normalizeChannelSubscribeSummary(
   value: unknown,
 ): ChannelSubscribeSummary {
@@ -469,8 +650,8 @@ async function mutateChannelSubscription(
   method: "POST" | "DELETE",
   fallbackMessage: string,
 ): Promise<ChannelSubscribeSummary> {
-  const response = await fetch(
-    `${API_BASE_URL}/channels/${channelId}/subscribe`,
+  const response = await httpFetch(
+    `${API_BASE_URL}/user/subscriptions/channels/${channelId}`,
     {
       method,
       headers: getAuthHeaders(),
@@ -518,7 +699,7 @@ export async function unsubscribeChannel(
 }
 
 export async function getUploadCategories(): Promise<UploadVideoCategory[]> {
-  const response = await fetch(`${API_BASE_URL}/categories`, {
+  const response = await httpFetch(`${API_BASE_URL}/categories`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -550,7 +731,7 @@ export async function createVideo(
   }
 
   const token = localStorage.getItem("access_token");
-  const response = await fetch(`${API_BASE_URL}/user/upload/video`, {
+  const response = await httpFetch(`${API_BASE_URL}/user/upload/video`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,

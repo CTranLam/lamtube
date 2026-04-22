@@ -43,25 +43,29 @@ export const UserToolbar = ({
             startAdornment: (
               <Box
                 component="span"
-                sx={{ color: "white", mr: 1, display: "flex" }}
+                sx={{ color: "#a1a1aa", mr: 1, display: "flex" }}
               >
                 <SearchIcon />
               </Box>
             ),
           }}
           sx={{
-            bgcolor: "primary.main",
+            bgcolor: "rgba(255,255,255,0.04)",
             borderRadius: 1,
             minWidth: 250,
             "& .MuiInputBase-input": {
-              color: "white",
+              color: "#f4f4f5",
               "&::placeholder": {
-                color: "rgba(255, 255, 255, 0.7)",
+                color: "rgba(255,255,255,0.6)",
                 opacity: 1,
               },
             },
-            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-            "&:hover": { bgcolor: "primary.dark" },
+            "& .MuiOutlinedInput-notchedOutline": {
+              border: "1px solid rgba(255,255,255,0.16)",
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "rgba(255,255,255,0.3)",
+            },
           }}
         />
 
@@ -79,16 +83,20 @@ export const UserToolbar = ({
           }}
           sx={{
             minWidth: 180,
-            bgcolor: "primary.main",
+            bgcolor: "rgba(255,255,255,0.04)",
             borderRadius: 2,
-            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+            "& .MuiOutlinedInput-notchedOutline": {
+              border: "1px solid rgba(255,255,255,0.16)",
+            },
             "& .MuiSelect-select": {
-              color: "white",
+              color: "#f4f4f5",
               fontWeight: 500,
               py: "8.5px",
             },
-            "& .MuiSelect-icon": { color: "white" },
-            "&:hover": { bgcolor: "primary.dark" },
+            "& .MuiSelect-icon": { color: "#d4d4d8" },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "rgba(255,255,255,0.3)",
+            },
           }}
         >
           <MenuItem value="all">Tất cả vai trò</MenuItem>

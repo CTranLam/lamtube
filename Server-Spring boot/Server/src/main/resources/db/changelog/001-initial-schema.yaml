@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-initial-schema
+      author: codex
+      validCheckSum:
+        - "9:ab054ab08036573beb6b0208194a8bf3"
+        - "9:85d7f6d80abcda53b1dcb0edb49d1871"
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: roles
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/001_schema.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: false

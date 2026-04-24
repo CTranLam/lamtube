@@ -1,38 +1,104 @@
-version: "3.9"
-
 services:
-  postgres:
-    image: postgres:16
-    container_name: lamtube-postgres
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=lamtube
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
-      - ./docker/postgres_data:/var/lib/postgresql/data
+      - redis_data:/data
+    command:
+      [
+        "sh",
+        "-c",
+        "redis-server --appendonly yes --requirepass \"$REDIS_PASSWORD\"",
+      ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d lamtube"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-lamtube}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lamtube}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   rustfs:
-    image: rustfs/rustfs:latest
-    container_name: lamtube-rustfs
+    image: rustfs/rustfs:${RUSTFS_IMAGE_TAG:-latest}
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${RUSTFS_PORT_API:-9000}:9000"
+      - "${RUSTFS_PORT_CONSOLE:-9001}:9001"
     environment:
-      - RUSTFS_INTERNAL_URL=http://localhost:9000
-      - RUSTFS_PUBLIC_URL_PREFIX=http://localhost:9000
+      - RUSTFS_INTERNAL_URL=${RUSTFS_INTERNAL_URL:-http://localhost:9000}
+      - RUSTFS_PUBLIC_URL_PREFIX=${RUSTFS_PUBLIC_URL_PREFIX:-http://localhost:9000}
       - RUSTFS_UPLOAD_PATH=/data/uploads
       - RUSTFS_CONSOLE_ENABLE=true
-      - RUSTFS_ACCESS_KEY=rustfsadmin
-      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
 
     volumes:
-      - ./rustfs_data:/data/uploads
+      - rustfs_data:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rustfs_data:

@@ -24,6 +24,10 @@ import LamTube.Server.dto.UserRegisterDTO;
 import LamTube.Server.dto.UserRegisterResponseDTO;
 import LamTube.Server.dto.UserResponseDTO;
 import LamTube.Server.dto.auth.AuthLoginResultDTO;
+import LamTube.Server.dto.auth.ForgotPasswordRequestDTO;
+import LamTube.Server.dto.auth.ResetPasswordRequestDTO;
+import LamTube.Server.dto.auth.VerifyResetOtpRequestDTO;
+import LamTube.Server.dto.auth.VerifyResetOtpResponseDTO;
 import LamTube.Server.dto.base.ResponseDTO;
 import LamTube.Server.service.ICategoryService;
 import LamTube.Server.service.IUserService;
@@ -116,6 +120,49 @@ public class GuestController {
                     .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                     .body(new ResponseDTO<>("Đăng nhập thành công", response));
 
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ResponseDTO<>(e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ResponseDTO<?>> sendOtp(@Valid @RequestBody ForgotPasswordRequestDTO request) {
+        try {
+            userService.sendPasswordResetOtp(request.getEmail());
+            return ResponseEntity.ok(
+                    new ResponseDTO<>("Nếu email tồn tại, mã OTP đã được gửi.", null)
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ResponseDTO<>(e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ResponseDTO<VerifyResetOtpResponseDTO>> verifyOtp(
+            @Valid @RequestBody VerifyResetOtpRequestDTO request) {
+        try {
+            String resetToken = userService.verifyPasswordResetOtp(request.getEmail(), request.getOtp());
+            return ResponseEntity.ok(
+                    new ResponseDTO<>("Xác thực OTP thành công", new VerifyResetOtpResponseDTO(resetToken))
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ResponseDTO<>(e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ResponseDTO<?>> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
+        try {
+            userService.resetPasswordByToken(
+                    request.getResetToken(),
+                    request.getNewPassword(),
+                    request.getRetypedPassword());
+            return ResponseEntity.ok(
+                    new ResponseDTO<>("Mật khẩu đã được thay đổi", null)
+            );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ResponseDTO<>(e.getMessage(), null));

@@ -32,6 +32,9 @@ public class WebSecurityConfig {
                             .requestMatchers(
                                     "/api/register",
                                     "/api/login",
+                                    "/api/forgot-password",
+                                    "/api/verify-reset-otp",
+                                    "/api/reset-password",
                                     "/api/refresh",
                                     "/api/logout",
                                     "/error",

@@ -7,16 +7,21 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import java.security.SecureRandom;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -57,6 +62,7 @@ import LamTube.Server.repository.UserProfileRepository;
 import LamTube.Server.repository.UserRepository;
 import LamTube.Server.repository.VideoReactionRepository;
 import LamTube.Server.repository.VideoRepository;
+import LamTube.Server.service.IEmailService;
 import LamTube.Server.service.IUserService;
 import LamTube.Server.utils.JwtTokenUtils;
 import jakarta.transaction.Transactional;
@@ -66,6 +72,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class UserServiceImpl implements IUserService {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String OTP_KEY_PREFIX = "auth:pwd-reset:otp:";
+    private static final String TOKEN_KEY_PREFIX = "auth:pwd-reset:token:";
+
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -79,9 +89,17 @@ public class UserServiceImpl implements IUserService {
     private final HistoryRepository historyRepository;
     private final VideoReactionRepository videoReactionRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final IEmailService emailService;
 
     @Value("${app.auth.refresh-token-ttl-days}")
     private int refreshTokenTtlDays;
+
+    @Value("${app.auth.password-reset.otp-ttl-seconds:300}")
+    private long otpTtlSeconds;
+
+    @Value("${app.auth.password-reset.reset-token-ttl-seconds:600}")
+    private long resetTokenTtlSeconds;
 
     @Override
     public UserRegisterResponseDTO createUser(UserRegisterDTO dto) {
@@ -194,6 +212,71 @@ public class UserServiceImpl implements IUserService {
             token.setRevoked(true);
             refreshTokenRepository.save(token);
         });
+    }
+
+    @Override
+    public void sendPasswordResetOtp(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        UserEntity user = userRepository.findByEmailAndIsDeletedFalse(normalizedEmail).orElse(null);
+        if (user == null) {
+            return;
+        }
+
+        String otp = generateOtp();
+        String otpKey = buildOtpKey(normalizedEmail);
+
+        stringRedisTemplate.opsForValue().set(otpKey, otp, Duration.ofSeconds(otpTtlSeconds));
+        emailService.sendPasswordResetOtp(normalizedEmail, otp, Math.max(1, otpTtlSeconds / 60));
+    }
+
+    @Override
+    public String verifyPasswordResetOtp(String email, String otp) {
+        String normalizedEmail = normalizeEmail(email);
+        if (otp == null || otp.isBlank()) {
+            throw new RuntimeException("OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        String otpKey = buildOtpKey(normalizedEmail);
+        String cachedOtp = stringRedisTemplate.opsForValue().get(otpKey);
+        if (cachedOtp == null || !cachedOtp.equals(otp.trim())) {
+            throw new RuntimeException("OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        stringRedisTemplate.delete(otpKey);
+
+        String resetToken = UUID.randomUUID().toString().replace("-", "");
+        stringRedisTemplate.opsForValue()
+                .set(buildTokenKey(resetToken), normalizedEmail, Duration.ofSeconds(resetTokenTtlSeconds));
+
+        return resetToken;
+    }
+
+    @Override
+    public void resetPasswordByToken(String resetToken, String newPassword, String retypedPassword) {
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new RuntimeException("Mật khẩu mới phải có ít nhất 8 ký tự");
+        }
+        if (!newPassword.equals(retypedPassword)) {
+            throw new RuntimeException("Mật khẩu nhập lại không khớp");
+        }
+        if (resetToken == null || resetToken.isBlank()) {
+            throw new RuntimeException("Phiên đổi mật khẩu không hợp lệ hoặc đã hết hạn");
+        }
+
+        String tokenKey = buildTokenKey(resetToken.trim());
+        String email = stringRedisTemplate.opsForValue().get(tokenKey);
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Phiên đổi mật khẩu không hợp lệ hoặc đã hết hạn");
+        }
+
+        UserEntity user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        stringRedisTemplate.delete(tokenKey);
+        revokeAllRefreshTokens(user.getId());
     }
 
     private String hashToken(String token) {
@@ -444,15 +527,45 @@ public class UserServiceImpl implements IUserService {
             return "@" + normalized;
         }
 
-        private String buildChannelName(UserEntity user, String profileName) {
-            if (profileName != null && !profileName.isBlank()) {
-                return profileName.trim();
+    private String buildChannelName(UserEntity user, String profileName) {
+        if (profileName != null && !profileName.isBlank()) {
+            return profileName.trim();
             }
             if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
                 return "Kênh chưa đặt tên";
             }
             return user.getEmail().split("@")[0];
         }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Email không hợp lệ");
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildOtpKey(String email) {
+        return OTP_KEY_PREFIX + email;
+    }
+
+    private String buildTokenKey(String resetToken) {
+        return TOKEN_KEY_PREFIX + resetToken;
+    }
+
+    private String generateOtp() {
+        int otpValue = SECURE_RANDOM.nextInt(900_000) + 100_000;
+        return String.valueOf(otpValue);
+    }
+
+    private void revokeAllRefreshTokens(Long userId) {
+        List<RefreshTokenEntity> activeTokens = refreshTokenRepository.findByUser_IdAndRevokedFalse(userId);
+        if (activeTokens.isEmpty()) {
+            return;
+        }
+        activeTokens.forEach(token -> token.setRevoked(true));
+        refreshTokenRepository.saveAll(activeTokens);
+    }
+
         @Override
         public void createWatchHistory(String email, Long videoId) {
             UserEntity userEntity = userRepository.findByEmailAndIsDeletedFalse(email)

@@ -5,6 +5,9 @@ import Home from "./pages/Home.tsx";
 import Watch from "./pages/Watch.tsx";
 import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
+import ForgotPassword from "./pages/ForgotPassword.tsx";
+import VerifyResetOtp from "./pages/VerifyResetOtp.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
 import Channel from "./pages/Channel";
 import UploadVideo from "./pages/UploadVideo.tsx";
 import Settings from "./pages/Settings.tsx";
@@ -26,6 +29,9 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forgot-password/verify-otp" element={<VerifyResetOtp />} />
+      <Route path="/forgot-password/reset" element={<ResetPassword />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<UserManagement />} />

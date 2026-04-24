@@ -26,6 +26,9 @@ public interface IUserService {
     AuthLoginResultDTO login(UserLoginDTO loginDTO);
     AuthLoginResultDTO refreshAccessToken(String refreshToken);
     void logout(String refreshToken);
+    void sendPasswordResetOtp(String email);
+    String verifyPasswordResetOtp(String email, String otp);
+    void resetPasswordByToken(String resetToken, String newPassword, String retypedPassword);
 
     UserResponseDTO findByEmail(String email);
 

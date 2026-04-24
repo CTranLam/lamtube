@@ -17,6 +17,9 @@ public class CorsConfig {
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
+    @Value("${app.cors.allowed-origin-patterns:}")
+    private String allowedOriginPatterns;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -24,7 +27,12 @@ public class CorsConfig {
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .collect(Collectors.toList());
+        List<String> originPatterns = Arrays.stream(allowedOriginPatterns.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toList());
         configuration.setAllowedOrigins(origins);
+        configuration.setAllowedOriginPatterns(originPatterns);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

@@ -50,9 +50,14 @@ spring.servlet.multipart.max-request-size=500MB
 spring.cache.type=redis
 spring.data.redis.host=${REDIS_HOST:localhost}
 spring.data.redis.port=${REDIS_PORT:6379}
-spring.data.redis.password=${REDIS_PASSWORD:}
+spring.data.redis.password=${REDIS_PASSWORD:1234}
 spring.data.redis.timeout=2000
 
+# RABBITMQ
+spring.rabbitmq.host=${RABBITMQ_HOST:localhost}
+spring.rabbitmq.port=${RABBITMQ_PORT:5672}
+spring.rabbitmq.username=${RABBITMQ_USERNAME:guest}
+spring.rabbitmq.password=${RABBITMQ_PASSWORD:guest}
 
 # MAIL CONFIG (GMAIL SMTP)
 spring.mail.host=${MAIL_HOST:smtp.gmail.com}

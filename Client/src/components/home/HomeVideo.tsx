@@ -1,6 +1,6 @@
 import { Box, Button } from "@mui/material";
 import { useVideos } from "../../hooks/useVideos";
-import type { HomeCategoryId } from "../../types/category";
+import type { HomeCategoryId } from "../../types/category.ts";
 import { VideoGrid } from "../video/VideoGrid";
 import HomeVideoItem from "./HomeVideoItem.tsx";
 

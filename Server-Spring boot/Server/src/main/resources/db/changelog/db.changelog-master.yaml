@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/005-refresh-tokens.yaml
   - include:
       file: db/changelog/006-video-reactions-created-at.yaml
+  - include:
+      file: db/changelog/007-videos-isdeleted.yaml

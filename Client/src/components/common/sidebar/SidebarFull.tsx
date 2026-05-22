@@ -9,10 +9,14 @@ import {
   Typography,
 } from "@mui/material";
 import { Link } from "react-router-dom";
-import { MAIN_NAV, YOU_NAV, SETTINGS_NAV } from "../../constants/navigation.constant";
+import {
+  MAIN_NAV,
+  YOU_NAV,
+  SETTINGS_NAV,
+} from "../../../constants/navigation.constant";
 import { SidebarNavItemComponent } from "./SidebarNavItem";
-import { useAuth } from "../../hooks/useAuth";
-import { useSubscribedChannels } from "../../hooks/useSubscribedChannels";
+import { useAuth } from "../../../hooks/useAuth";
+import { useSubscribedChannels } from "../../../hooks/useSubscribedChannels";
 
 export function SidebarFull() {
   const { user } = useAuth();
@@ -104,7 +108,10 @@ export function SidebarFull() {
             </ListItem>
           ) : (
             subscribedChannels.slice(0, 8).map((channel) => (
-              <ListItem key={`${channel.channelId}-${channel.channelHandle}`} disablePadding>
+              <ListItem
+                key={`${channel.channelId}-${channel.channelHandle}`}
+                disablePadding
+              >
                 <ListItemButton
                   component={Link}
                   to="/subscriptions"

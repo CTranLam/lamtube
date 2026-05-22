@@ -5,7 +5,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
-import type { SidebarNavItem } from "../../constants/navigation.constant";
+import type { SidebarNavItem } from "../../../constants/navigation.constant";
 
 interface SidebarNavItemProps {
   item: SidebarNavItem;

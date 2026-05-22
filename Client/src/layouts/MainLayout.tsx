@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
-import Navbar from "../components/common/Navbar";
-import Sidebar from "../components/common/Sidebar";
+import Navbar from "../components/common/navbar/Navbar";
+import Sidebar from "../components/common/sidebar/Sidebar";
 
 export default function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

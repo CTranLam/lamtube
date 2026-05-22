@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ import LamTube.Server.configuration.RustFsProperties;
 import LamTube.Server.dto.comment.CommentCreateRequestDTO;
 import LamTube.Server.dto.comment.CommentResponseDTO;
 import LamTube.Server.dto.comment.CommentUpdateRequestDTO;
+import LamTube.Server.dto.notification.NotificationEventPayload;
 import LamTube.Server.dto.video.VideoReactionSummaryDTO;
 import LamTube.Server.dto.video.VideoResponseDTO;
 import LamTube.Server.dto.base.PagedResponseDTO;
@@ -48,11 +50,13 @@ import LamTube.Server.repository.UserRepository;
 import LamTube.Server.repository.VideoReactionRepository;
 import LamTube.Server.repository.VideoRepository;
 import LamTube.Server.service.IVideoService;
+import LamTube.Server.service.NotificationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import LamTube.Server.configuration.RabbitMQConfig;
 
 @Service
 @RequiredArgsConstructor
@@ -69,6 +73,7 @@ public class VideoServiceImpl implements IVideoService {
     private final SubscriptionRepository subscriptionRepository;
     private final RustFsProperties rustFsProperties;
     private final S3Client rustFsS3Client;
+    private final NotificationEventPublisher notificationEventPublisher;
     @Override
     public VideoResponseDTO getVideoById(Long videoId, String requesterEmail) {
         VideoEntity videoEntity = videoRepository.findByIdAndIsDeletedFalse(videoId);
@@ -180,6 +185,7 @@ public class VideoServiceImpl implements IVideoService {
 
         reaction.setType(normalizedType);
         videoReactionRepository.save(reaction);
+        publishVideoReactionEvent(videoEntity, user, normalizedType);
 
         return getReactionSummary(videoId, requesterEmail);
     }
@@ -445,7 +451,65 @@ public class VideoServiceImpl implements IVideoService {
         }
 
         CommentEntity savedComment = commentRepository.save(comment);
+        publishVideoCommentEvent(savedComment);
         return convertCommentToDTO(savedComment);
+    }
+
+    private void publishVideoReactionEvent(VideoEntity videoEntity, UserEntity actor, String reactionType) {
+        if (videoEntity == null || actor == null || reactionType == null) {
+            return;
+        }
+
+        UserEntity targetUser = videoEntity.getUser();
+        if (targetUser == null || Objects.equals(actor.getId(), targetUser.getId())) {
+            return;
+        }
+
+        String routingKey = "like".equalsIgnoreCase(reactionType)
+                ? RabbitMQConfig.ROUTING_VIDEO_LIKE
+                : RabbitMQConfig.ROUTING_VIDEO_DISLIKE;
+
+        NotificationEventPayload payload = NotificationEventPayload.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(routingKey)
+                .occurredAt(Instant.now())
+                .actorId(actor.getId())
+                .actorEmail(actor.getEmail())
+                .targetUserId(targetUser.getId())
+                .targetUserEmail(targetUser.getEmail())
+                .videoId(videoEntity.getId())
+                .reactionType(reactionType.toLowerCase(Locale.ROOT))
+                .build();
+
+        notificationEventPublisher.publish(routingKey, payload);
+    }
+
+    private void publishVideoCommentEvent(CommentEntity comment) {
+        if (comment == null || comment.getVideo() == null || comment.getUser() == null) {
+            return;
+        }
+
+        UserEntity actor = comment.getUser();
+        UserEntity targetUser = comment.getVideo().getUser();
+        if (targetUser == null || Objects.equals(actor.getId(), targetUser.getId())) {
+            return;
+        }
+
+        NotificationEventPayload payload = NotificationEventPayload.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(RabbitMQConfig.ROUTING_VIDEO_COMMENT)
+                .occurredAt(Instant.now())
+                .actorId(actor.getId())
+                .actorEmail(actor.getEmail())
+                .targetUserId(targetUser.getId())
+                .targetUserEmail(targetUser.getEmail())
+                .videoId(comment.getVideo().getId())
+                .commentId(comment.getId())
+                .parentCommentId(comment.getParentId())
+                .commentContent(comment.getContent())
+                .build();
+
+        notificationEventPublisher.publish(RabbitMQConfig.ROUTING_VIDEO_COMMENT, payload);
     }
 
     @Override

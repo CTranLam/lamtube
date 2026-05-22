@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Avatar,
+  Badge,
   Box,
   IconButton,
   Menu,
@@ -9,15 +10,31 @@ import {
 } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
-import { useMyProfile } from "../../hooks/useMyProfile";
+import { useAuth } from "../../../hooks/useAuth";
+import { useMyProfile } from "../../../hooks/useMyProfile";
+import { useNavbarNotifications } from "../../../hooks/useNavbarNotifications";
+import { NotificationMenu } from "../navbar/NotificationMenu";
+import { NotificationToasts } from "../navbar/NotificationToasts";
+import type { AccountMenuItem } from "../../../types/navbar";
 
 export function NavbarActions() {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
   const { isAuthenticated, signOut, user } = useAuth();
   const { userData } = useMyProfile(isAuthenticated, user?.email);
+  const {
+    notificationAnchorEl,
+    notificationOpen,
+    notificationItems,
+    notificationRequest,
+    unreadTotal,
+    toastItems,
+    handleNotificationMenuOpen,
+    handleNotificationMenuClose,
+    handleNotificationAction,
+    handleClearAll,
+    closeToast,
+  } = useNavbarNotifications({ isAuthenticated });
   const open = Boolean(anchorEl);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -36,6 +53,59 @@ export function NavbarActions() {
     signOut();
     navigate("/");
   };
+
+  const accountMenuItems: AccountMenuItem[] = [];
+  if (isAuthenticated) {
+    accountMenuItems.push({
+      key: "logout",
+      label: "Đăng xuất",
+      onClick: handleSignOut,
+      sx: { color: "#fca5a5" },
+    });
+  } else {
+    accountMenuItems.push(
+      {
+        key: "login",
+        label: "Đăng nhập",
+        onClick: () => handleAction("/login"),
+      },
+      {
+        key: "register",
+        label: "Đăng ký",
+        onClick: () => handleAction("/register"),
+      },
+    );
+  }
+
+  let avatarContent = null;
+  if (isAuthenticated) {
+    avatarContent = (
+      <Avatar
+        src={userData?.profile.avatarUrl || undefined}
+        sx={{
+          width: 32,
+          height: 32,
+          bgcolor: "#3b82f6",
+          fontSize: 14,
+        }}
+      >
+        {(userData?.profile.fullName || user?.email || "U")
+          .charAt(0)
+          .toUpperCase()}
+      </Avatar>
+    );
+  } else {
+    avatarContent = (
+      <Avatar
+        sx={{
+          width: 32,
+          height: 32,
+          bgcolor: "#3b82f6",
+          fontSize: 14,
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -61,37 +131,19 @@ export function NavbarActions() {
         </Tooltip>
 
         <Tooltip title="Thông báo">
-          <IconButton sx={{ color: "#fff" }}>
-            <NotificationsIcon />
+          <IconButton
+            sx={{ color: "#fff" }}
+            onClick={handleNotificationMenuOpen}
+          >
+            <Badge color="error" badgeContent={unreadTotal} max={99}>
+              <NotificationsIcon />
+            </Badge>
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Tài khoản">
           <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0.5 }}>
-            {isAuthenticated ? (
-              <Avatar
-                src={userData?.profile.avatarUrl || undefined}
-                sx={{
-                  width: 32,
-                  height: 32,
-                  bgcolor: "#3b82f6",
-                  fontSize: 14,
-                }}
-              >
-                {(userData?.profile.fullName || user?.email || "U")
-                  .charAt(0)
-                  .toUpperCase()}
-              </Avatar>
-            ) : (
-              <Avatar
-                sx={{
-                  width: 32,
-                  height: 32,
-                  bgcolor: "#3b82f6",
-                  fontSize: 14,
-                }}
-              ></Avatar>
-            )}
+            {avatarContent}
           </IconButton>
         </Tooltip>
       </Box>
@@ -125,21 +177,25 @@ export function NavbarActions() {
 
         <Box sx={{ my: 1, borderBottom: "1px solid rgba(255,255,255,0.1)" }} />
 
-        {isAuthenticated ? (
-          <MenuItem onClick={handleSignOut} sx={{ color: "#fca5a5" }}>
-            Đăng xuất
+        {accountMenuItems.map((item) => (
+          <MenuItem key={item.key} onClick={item.onClick} sx={item.sx}>
+            {item.label}
           </MenuItem>
-        ) : (
-          [
-            <MenuItem key="login" onClick={() => handleAction("/login")}>
-              Đăng nhập
-            </MenuItem>,
-            <MenuItem key="register" onClick={() => handleAction("/register")}>
-              Đăng ký
-            </MenuItem>,
-          ]
-        )}
+        ))}
       </Menu>
+
+      <NotificationMenu
+        anchorEl={notificationAnchorEl}
+        open={notificationOpen}
+        unreadTotal={unreadTotal}
+        items={notificationItems}
+        request={notificationRequest}
+        onClose={handleNotificationMenuClose}
+        onNotificationAction={handleNotificationAction}
+        onMarkAllRead={handleClearAll}
+      />
+
+      <NotificationToasts items={toastItems} onClose={closeToast} />
     </>
   );
 }

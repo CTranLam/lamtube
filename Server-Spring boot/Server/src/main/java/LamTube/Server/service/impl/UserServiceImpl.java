@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.UUID;
+import java.time.Instant;
 import java.util.stream.Collectors;
 import java.security.SecureRandom;
 
@@ -39,6 +40,7 @@ import LamTube.Server.dto.UserResponseDTO;
 import LamTube.Server.dto.VideoRequestDTO;
 import LamTube.Server.dto.auth.AuthLoginResultDTO;
 import LamTube.Server.dto.channel.ChannelStatsDTO;
+import LamTube.Server.dto.notification.NotificationEventPayload;
 import LamTube.Server.dto.video.VideoResponseDTO;
 import LamTube.Server.dto.WatchHistoryGroupDTO;
 import LamTube.Server.dto.WatchHistoryItemDTO;
@@ -64,7 +66,9 @@ import LamTube.Server.repository.VideoReactionRepository;
 import LamTube.Server.repository.VideoRepository;
 import LamTube.Server.service.IEmailService;
 import LamTube.Server.service.IUserService;
+import LamTube.Server.service.NotificationEventPublisher;
 import LamTube.Server.utils.JwtTokenUtils;
+import LamTube.Server.configuration.RabbitMQConfig;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -91,6 +95,7 @@ public class UserServiceImpl implements IUserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final IEmailService emailService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Value("${app.auth.refresh-token-ttl-days}")
     private int refreshTokenTtlDays;
@@ -466,17 +471,40 @@ public class UserServiceImpl implements IUserService {
                 throw new RuntimeException("Bạn không thể tự đăng ký kênh của chính mình.");
             }
 
-            subscriptionRepository.findByFollower_IdAndChannelOwner_Id(follower.getId(), channelOwner.getId())
-                    .orElseGet(() -> {
-                        SubscriptionEntity subscription = new SubscriptionEntity();
-                        subscription.setFollower(follower);
-                        subscription.setChannelOwner(channelOwner);
-                        return subscriptionRepository.save(subscription);
-                    });
+            boolean isNewSubscription = subscriptionRepository.findByFollower_IdAndChannelOwner_Id(
+                    follower.getId(),
+                    channelOwner.getId()).isEmpty();
+
+            if (isNewSubscription) {
+                SubscriptionEntity subscription = new SubscriptionEntity();
+                subscription.setFollower(follower);
+                subscription.setChannelOwner(channelOwner);
+                subscriptionRepository.save(subscription);
+                publishSubscribeEvent(follower, channelOwner);
+            }
 
             long subscriberCount = subscriptionRepository.countByChannelOwner_IdAndChannelOwner_IsDeletedFalse(
                     channelOwner.getId());
             return new ChannelSubscribeSummaryDTO(true, subscriberCount);
+        }
+
+        private void publishSubscribeEvent(UserEntity follower, UserEntity channelOwner) {
+            if (follower == null || channelOwner == null || follower.getId().equals(channelOwner.getId())) {
+                return;
+            }
+
+            NotificationEventPayload payload = NotificationEventPayload.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .eventType(RabbitMQConfig.ROUTING_CHANNEL_SUBSCRIBE)
+                    .occurredAt(Instant.now())
+                    .actorId(follower.getId())
+                    .actorEmail(follower.getEmail())
+                    .targetUserId(channelOwner.getId())
+                    .targetUserEmail(channelOwner.getEmail())
+                    .channelId(channelOwner.getId())
+                    .build();
+
+            notificationEventPublisher.publish(RabbitMQConfig.ROUTING_CHANNEL_SUBSCRIBE, payload);
         }
 
         @Override

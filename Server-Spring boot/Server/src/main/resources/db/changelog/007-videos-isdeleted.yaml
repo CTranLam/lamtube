@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-videos-isdeleted
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: videos
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE videos
+                ADD COLUMN IF NOT EXISTS isdeleted BOOLEAN;
+
+              UPDATE videos
+              SET isdeleted = FALSE
+              WHERE isdeleted IS NULL;
+
+              ALTER TABLE videos
+                ALTER COLUMN isdeleted SET DEFAULT FALSE;
